@@ -1,0 +1,33 @@
+# ─── THIS REPO IS PUBLIC ───────────────────────────────────────────────────
+# Brand artifacts are confidential. They live in Google Drive and are
+# fetched to artifacts/ at runtime. They must NEVER be committed.
+artifacts/*
+!artifacts/.gitkeep
+!artifacts/README.md
+
+# Environment (API keys)
+.env
+.env.local
+
+# Generated outputs — local only
+outputs/*
+!outputs/.gitkeep
+
+# Run logs — local only
+tracking/*
+!tracking/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
