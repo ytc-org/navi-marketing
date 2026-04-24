@@ -7,22 +7,18 @@ This is a Claude-first content ops system for the Navi marketing team. It runs c
 ## Architecture
 
 ```
-Claude (Cowork or Claude Code)
+Claude Code (on the user's Mac)
   ├── Drive MCP → fetches artifacts → writes artifacts/*.md (gitignored)
-  └── bash curl → POST <server-url>/api/<workflow>
+  └── bash curl → POST http://localhost:8100/api/<workflow>
                    │
-                   └── Python server (on user's Mac) → runs workflow async → saves to outputs/
+                   └── Python server (user's Mac) → runs workflow async → saves to outputs/
                    │
-                   └── bash curl → GET <server-url>/api/jobs/<job_id> (poll until done)
+                   └── bash curl → GET http://localhost:8100/api/jobs/<job_id> (poll until done)
 ```
 
-**The server runs on the user's Mac in a Terminal window — not inside the Cowork sandbox.** This is the only supported setup. It's the only configuration that works reliably: the Mac has real internet egress (for Firecrawl, OpenAI, Anthropic), the process persists across bash calls, and outputs land directly in the user's local `outputs/` folder.
+**Claude Code is the only supported client.** Cowork isn't — its sandboxed VM can't reliably reach services on the host Mac, and locally-configured MCP servers don't bridge into the sandbox. Everything here assumes Claude Code running directly on the user's Mac, talking to a local Python server at `http://localhost:8100`.
 
-Base URLs:
-- **From Claude Code (running on the Mac):** `http://localhost:8100`
-- **From Cowork (sandbox reaches the host via docker bridge):** `http://host.docker.internal:8100`
-
-Claude should never try to start the server itself inside the sandbox — that path exists in old docs but doesn't work. If the server isn't running, ask the user to run `bash start.sh` in a Terminal window on their Mac.
+If the server isn't running, ask the user to open Terminal, `cd` into the repo, and run `bash start.sh`.
 
 ## Quick Start (for the user)
 
@@ -119,9 +115,7 @@ cd /path/to/navi-marketing && git pull
 ## Troubleshooting
 
 **Connection refused from Claude**
-The server isn't running. Ask the user to open Terminal on their Mac, `cd` into the repo, and run `bash start.sh`. Then health-check from your environment:
-- Claude Code: `curl http://localhost:8100/api/health`
-- Cowork: `curl http://host.docker.internal:8100/api/health`
+The server isn't running. Ask the user to open Terminal on their Mac, `cd` into the repo, and run `bash start.sh`. Then health-check: `curl http://localhost:8100/api/health`.
 
 **Server won't start — "Address already in use"**
 Server is already running in another Terminal window. Use the existing one, or stop it and restart.

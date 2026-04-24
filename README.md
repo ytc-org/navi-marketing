@@ -4,30 +4,31 @@ Claude-powered content workflows (page audits, rewrites, metadata, internal link
 
 ## What this is
 
-You ask Claude (in Cowork) to do content work. Claude runs the workflows, reads the latest brand context from your shared Google Drive folder, and hands you back the finished output as a link you can save anywhere. You don't touch terminals or files in this repo.
+You ask Claude Code to do content work. Claude runs the workflows, reads the latest brand context from your shared Google Drive folder, and hands you back the finished output as a link you can save anywhere.
 
 ## What you need before you start
 
-- Either **Cowork** (Claude desktop app) or **Claude Code** (CLI) installed and signed in
+- **Claude Code** (CLI) installed and signed in
 - Python 3.10+ on your Mac (the installer will check)
 - An **Anthropic** API key ([get one](https://console.anthropic.com/settings/keys))
 - A **Firecrawl** API key ([get one](https://firecrawl.dev))
 - An **OpenAI** API key ([get one](https://platform.openai.com/api-keys)) — only for the internal-link workflow; skip if you don't plan to use it
-- The Google Drive MCP connector enabled in Cowork (so Claude can read the shared brand docs)
+- The Google Drive MCP connector enabled in Claude Code (so Claude can read the shared brand docs)
+
+> **Why Claude Code and not Cowork?** Cowork sessions run inside a sandboxed VM that can't reliably reach services running on your Mac, and locally-configured MCP servers don't bridge into the sandbox either. Claude Code runs directly on your Mac, so the workflow server and Claude can talk to each other with zero friction.
 
 ## One-time setup
 
 Clone this repo somewhere on your Mac. Then:
 
 1. Open Terminal, `cd` into the folder, and run: **`bash start.sh`**
-2. On first run, it'll walk you through Python setup and ask for your API keys. Paste them when prompted.
+2. On first run, it walks you through Python setup and asks for your API keys. Paste them when prompted.
 3. Once setup finishes, it starts the workflow server. Leave the Terminal window open.
-4. In Cowork, ask Claude to connect to the repo folder (or drag the folder in). Claude Code users can skip this — it's already connected.
 
 ## Every work session
 
 1. Open Terminal, `cd` into the folder, run **`bash start.sh`**. Leave it open.
-2. Talk to Claude. Examples:
+2. Open Claude Code in another window. Examples of what to ask:
 
 - "Audit this page: https://www.yournavi.com/posts/best-prepaid-unlimited-plans"
 - "Give me refresh recommendations for [URL]"
@@ -37,9 +38,9 @@ Clone this repo somewhere on your Mac. Then:
 Claude will:
 
 1. Pull the latest brand artifacts from Google Drive.
-2. Call the workflow server running on your Mac (that Terminal window from step 1).
+2. Call the workflow server running on your Mac at `http://localhost:8100`.
 3. Run the workflow (usually 2–5 minutes, up to ~8 for a full article draft).
-4. **Show you the finished output as a link in chat.** Outputs also land in `outputs/` on your Mac, so you can open them in Finder anytime.
+4. **Show you the finished output as a link.** Files land in `outputs/` on your Mac — open them in Finder anytime.
 
 ## Where brand artifacts live
 
@@ -70,7 +71,7 @@ Every workflow produces at least one Markdown file (some produce two — e.g., i
 Your Terminal window with `bash start.sh` isn't running. Open Terminal, `cd` into the repo, run `bash start.sh`, then ask Claude to try again.
 
 **Claude says it can't find the brand artifacts**
-The Google Drive connector probably isn't connected in Cowork. Open Cowork settings, connect Google Drive, and ask Claude to try again.
+The Google Drive MCP connector probably isn't connected in Claude Code. Set it up and ask Claude to try again.
 
 **Workflow says it failed and mentions an API key**
 Your `.env` file is missing a key or has a typo. Open `.env` in any editor and fix it, then restart `bash start.sh`.

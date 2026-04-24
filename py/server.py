@@ -2,15 +2,15 @@
 """Content Ops Workflow Server
 
 A lightweight HTTP server that exposes each content workflow as a POST endpoint.
-Designed to be called by Claude (Cowork/Desktop) via http://host.docker.internal:8100.
+Designed to be called by Claude Code running on the same Mac via http://localhost:8100.
 
 Async job model:
   POST /api/<workflow>      -> returns {"job_id": "..."} immediately; workflow runs in a background thread.
   GET  /api/jobs/<job_id>   -> returns {"status": "pending|running|done|error", "result": ..., "error": ...}
 
-  The async pattern exists because Cowork's bash tool has a hard ~45s timeout,
-  and workflows take 2–5 minutes. The caller should poll /api/jobs/<id>
-  every 15–30 seconds until status is "done" or "error".
+  The async pattern keeps each curl fast and lets Claude show progress
+  to the user. Workflows take 2–8 minutes; poll /api/jobs/<id> every
+  15–30 seconds until status is "done" or "error".
 
 Endpoints:
   POST /api/page_audit
@@ -24,16 +24,10 @@ Endpoints:
   GET  /api/workflows
 
 Usage:
-  python3 py/server.py              # Starts on port 8100, binds 0.0.0.0
+  python3 py/server.py              # Starts on port 8100, binds 127.0.0.1
   python3 py/server.py --port 9000  # Custom port
 
 The server loads .env from the project root on startup.
-
-Note on bind address: the server binds 0.0.0.0 by default so that
-Claude (running in a sandboxed Linux VM) can reach it via
-http://host.docker.internal:8100. If you'd prefer to restrict to
-loopback only, pass --host 127.0.0.1 — but Claude-from-Cowork won't
-be able to reach it.
 """
 
 from __future__ import annotations
@@ -431,8 +425,8 @@ def main() -> None:
     # ── Start server ──────────────────────────────────────────────────────
     parser = argparse.ArgumentParser(description="Content Ops Workflow Server")
     parser.add_argument("--port", type=int, default=8100, help="Port to listen on (default: 8100)")
-    parser.add_argument("--host", type=str, default="0.0.0.0",
-                        help="Host to bind to (default: 0.0.0.0, so Claude-in-Cowork can reach via host.docker.internal)")
+    parser.add_argument("--host", type=str, default="127.0.0.1",
+                        help="Host to bind to (default: 127.0.0.1 — loopback only, safest)")
     args = parser.parse_args()
 
     try:
@@ -451,8 +445,7 @@ def main() -> None:
 
     print(_bold("  Server is running"))
     print(_dim("  ────────────────────────────────────────────────"))
-    print(f"    {_green('▸')} From Claude Code:  {_cyan(f'http://localhost:{args.port}')}")
-    print(f"    {_green('▸')} From Cowork:       {_cyan(f'http://host.docker.internal:{args.port}')}")
+    print(f"    {_green('▸')} {_cyan(f'http://localhost:{args.port}')}  {_dim('(for Claude Code on this Mac)')}")
     print()
     print(f"    {_dim('Health check:')}    http://localhost:{args.port}/api/health")
     print(f"    {_dim('List workflows:')}  http://localhost:{args.port}/api/workflows")
