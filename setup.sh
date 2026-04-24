@@ -260,19 +260,22 @@ echo -e "  ───────────────────────
 echo ""
 echo -e "  ${GREEN}${BOLD}Setup complete!${NC}"
 echo ""
-echo -e "  ${BOLD}To start the workflow server:${NC}"
+echo -e "  ${BOLD}Next time — and every time after — just run:${NC}"
 echo ""
-echo -e "    ${CYAN}$PYTHON_CMD py/server.py${NC}"
+echo -e "    ${CYAN}bash start.sh${NC}"
 echo ""
-echo -e "  ${DIM}This starts a local server that Claude can talk to.${NC}"
-echo -e "  ${DIM}Leave it running in this terminal window while you work.${NC}"
-echo ""
-echo -e "  ${BOLD}Quick test:${NC}"
-echo -e "  ${DIM}Once the server is running, open a new terminal and run:${NC}"
-echo ""
-echo -e "    ${CYAN}curl http://localhost:8100/api/health${NC}"
-echo ""
-echo -e "  ${DIM}You should see: {\"status\": \"ok\"}${NC}"
+echo -e "  ${DIM}That one command starts the workflow server. Leave the${NC}"
+echo -e "  ${DIM}Terminal window open while you work in Claude.${NC}"
 echo ""
 echo -e "  ─────────────────────────────────────────────────"
+echo ""
+echo ""
+read -p "  Start the server now? [Y/n] " START_NOW
+START_NOW=${START_NOW:-Y}
+if [[ "$START_NOW" =~ ^[Yy] ]]; then
+    echo ""
+    exec bash start.sh
+fi
+echo ""
+echo -e "  ${DIM}No worries — run ${NC}${CYAN}bash start.sh${NC}${DIM} whenever you're ready.${NC}"
 echo ""

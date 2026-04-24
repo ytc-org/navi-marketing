@@ -240,7 +240,8 @@ def _job_get(job_id: str) -> dict | None:
 def _run_workflow_in_background(job_id: str, workflow_name: str, workflow_input) -> None:
     """Executed in a daemon thread. Updates the job store with result or error."""
     _job_update(job_id, status="running", started_at=_now_iso())
-    print(f"[{job_id[:8]}] Running {workflow_name} — topic={workflow_input.topic!r}")
+    short = job_id[:8]
+    print(f"\n  {_dim('→ dispatch')}  {_cyan(workflow_name)}  {_dim(f'· job {short}')}")
     try:
         run_fn = import_workflow(workflow_name)
         result = run_fn(workflow_input)
@@ -250,7 +251,7 @@ def _run_workflow_in_background(job_id: str, workflow_name: str, workflow_input)
             finished_at=_now_iso(),
             result=result.model_dump(),
         )
-        print(f"[{job_id[:8]}] Done.")
+        print(f"  {_green('✓ completed')}  {_cyan(workflow_name)}  {_dim(f'· job {short}')}\n")
     except Exception as e:
         traceback.print_exc()
         _job_update(
@@ -259,7 +260,7 @@ def _run_workflow_in_background(job_id: str, workflow_name: str, workflow_input)
             finished_at=_now_iso(),
             error=str(e),
         )
-        print(f"[{job_id[:8]}] Failed: {e}")
+        print(f"  {_yellow('✗ failed')}     {_cyan(workflow_name)}  {_dim(f'· job {short}')}  {_yellow(str(e))}\n")
 
 
 class WorkflowHandler(BaseHTTPRequestHandler):
@@ -373,34 +374,58 @@ class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
 
 
+BANNER = r"""
+   ╔══════════════════════════════════════════════════════════════╗
+   ║                                                              ║
+   ║     ███╗   ██╗ █████╗ ██╗   ██╗██╗                           ║
+   ║     ████╗  ██║██╔══██╗██║   ██║██║     content ops           ║
+   ║     ██╔██╗ ██║███████║██║   ██║██║     workflow server       ║
+   ║     ██║╚██╗██║██╔══██║╚██╗ ██╔╝██║                           ║
+   ║     ██║ ╚████║██║  ██║ ╚████╔╝ ██║     port 8100             ║
+   ║     ╚═╝  ╚═══╝╚═╝  ╚═╝  ╚═══╝  ╚═╝                           ║
+   ║                                                              ║
+   ╚══════════════════════════════════════════════════════════════╝
+"""
+
+# ANSI styles — only applied when stdout is a TTY
+_IS_TTY = sys.stdout.isatty()
+def _c(code: str, s: str) -> str:
+    return f"\033[{code}m{s}\033[0m" if _IS_TTY else s
+def _cyan(s):  return _c("36", s)
+def _green(s): return _c("32;1", s)
+def _dim(s):   return _c("2", s)
+def _bold(s):  return _c("1", s)
+def _yellow(s): return _c("33", s)
+
+
 def main() -> None:
+    # ── Banner ────────────────────────────────────────────────────────────
+    print(_cyan(BANNER))
+
     # ── Pre-flight checks ─────────────────────────────────────────────────
-    print()
-    print("Content Ops Workflow Server — Starting up...")
-    print("-" * 50)
+    print(_bold("  Pre-flight checks"))
+    print(_dim("  ────────────────────────────────────────────────"))
 
     _check_python_version()
-    print(f"  Python:       {sys.version.split()[0]} ✓")
+    print(f"    {_green('✓')} Python {sys.version.split()[0]}")
 
     _check_dependencies()
-    print(f"  Dependencies: all installed ✓")
+    print(f"    {_green('✓')} All dependencies installed")
 
     _check_env_file(PROJECT_ROOT)
     from dotenv import load_dotenv
     load_dotenv(PROJECT_ROOT / ".env")
-    print(f"  .env file:    loaded ✓")
+    print(f"    {_green('✓')} .env loaded")
 
     _check_api_keys()
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
     firecrawl_key = os.getenv("FIRECRAWL_API_KEY", "")
-    print(f"  Anthropic:    {'configured ✓' if anthropic_key else 'MISSING ✗'}")
-    print(f"  Firecrawl:    {'configured ✓' if firecrawl_key else 'not set (scraping disabled)'}")
+    print(f"    {_green('✓') if anthropic_key else _yellow('!')} Anthropic API key {'configured' if anthropic_key else 'MISSING'}")
+    print(f"    {_green('✓') if firecrawl_key else _yellow('!')} Firecrawl API key {'configured' if firecrawl_key else 'not set (scraping disabled)'}")
 
     _check_artifacts(PROJECT_ROOT)
     artifact_count = len(list((PROJECT_ROOT / "artifacts").glob("*.md"))) if (PROJECT_ROOT / "artifacts").is_dir() else 0
-    print(f"  Artifacts:    {artifact_count} files loaded ✓")
-
-    print("-" * 50)
+    print(f"    {_green('✓')} Artifacts: {artifact_count} file(s) in artifacts/")
     print()
 
     # ── Start server ──────────────────────────────────────────────────────
@@ -414,28 +439,33 @@ def main() -> None:
         server = ThreadingHTTPServer((args.host, args.port), WorkflowHandler)
     except OSError as e:
         if "Address already in use" in str(e):
-            print(f"ERROR: Port {args.port} is already in use.")
+            print(_yellow(f"  ✗ Port {args.port} is already in use."))
             print()
-            print("This usually means the server is already running. Options:")
-            print(f"  1. Use the running server (it's already at http://{args.host}:{args.port})")
-            print(f"  2. Stop the other process and try again")
-            print(f"  3. Use a different port: python3 py/server.py --port 8200")
+            print("  The server is probably already running in another Terminal window.")
+            print("  Options:")
+            print(f"    1. Use the existing server — it's already at http://localhost:{args.port}")
+            print(f"    2. Find and stop the other process, then run this again")
+            print(f"    3. Start on a different port:  python3 py/server.py --port 8200")
             sys.exit(1)
         raise
 
-    bind_display = args.host if args.host != "0.0.0.0" else "localhost"
-    print(f"Server is ready at http://{bind_display}:{args.port}")
-    print(f"  (Claude reaches this from Cowork at http://host.docker.internal:{args.port})")
+    print(_bold("  Server is running"))
+    print(_dim("  ────────────────────────────────────────────────"))
+    print(f"    {_green('▸')} From Claude Code:  {_cyan(f'http://localhost:{args.port}')}")
+    print(f"    {_green('▸')} From Cowork:       {_cyan(f'http://host.docker.internal:{args.port}')}")
     print()
-    print(f"  Health check:   http://{bind_display}:{args.port}/api/health")
-    print(f"  List workflows: http://{bind_display}:{args.port}/api/workflows")
+    print(f"    {_dim('Health check:')}    http://localhost:{args.port}/api/health")
+    print(f"    {_dim('List workflows:')}  http://localhost:{args.port}/api/workflows")
     print()
-    print("Available workflows (all async — returns job_id, poll /api/jobs/<id>):")
+    print(_bold("  Available workflows"))
+    print(_dim("  ────────────────────────────────────────────────"))
     for name, info in WORKFLOWS.items():
-        print(f"  POST /api/{name} — {info['description']}")
+        print(f"    {_cyan('POST')} /api/{name}")
+        print(f"         {_dim(info['description'])}")
     print()
-    print("Ready for requests. Leave this window open.")
-    print("Press Ctrl+C to stop the server.")
+    print(_dim("  ────────────────────────────────────────────────"))
+    print(f"  {_green('Ready.')} Leave this window open while you work in Claude.")
+    print(f"  {_dim('Press Ctrl+C to stop.')}")
     print()
 
     try:

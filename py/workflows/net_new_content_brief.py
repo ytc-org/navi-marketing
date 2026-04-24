@@ -33,6 +33,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import search_and_scrape
 from lib.persistence import persist_workflow_run, OUTPUTS_DIR, slugify, timestamp
 
@@ -55,19 +56,20 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the net new content brief workflow."""
 
-    print(f"[net_new_content_brief] Starting: {workflow_input.topic}")
+    log = WorkflowLogger("net_new_content_brief", total_steps=7)
+    log.start(workflow_input.topic)
 
     # Validate that we have keywords or can infer them from topic
     search_keywords = workflow_input.keywords if workflow_input.keywords else [workflow_input.topic]
-    print(f"[net_new_content_brief] Using keywords: {search_keywords}")
 
     # --- Step 1: Research existing landscape ---
-    print("[net_new_content_brief] Step 1/6: Researching existing landscape...")
+    log.step("Researching existing landscape")
+    log.detail(f"Using keywords: {search_keywords}")
     all_competitors: list[dict] = []
     seen_urls: set[str] = set()
 
     for query in search_keywords[:3]:
-        print(f"  Searching & scraping: '{query}'")
+        log.detail(f"Searching & scraping: '{query}'")
         try:
             results = search_and_scrape(query, limit=5, scrape_content=True)
 
@@ -83,12 +85,13 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
                             "content": r.content[:12000],
                         })
         except Exception as e:
-            print(f"    Error searching '{query}': {e}")
+            log.warn(f"Error searching '{query}': {e}")
 
         if len(all_competitors) >= 8:
             break
 
-    print(f"  Found {len(all_competitors)} unique competitor pages with content.")
+    log.detail(f"Found {len(all_competitors)} unique competitor pages with content")
+    log.step_done()
 
     # Format competitor content for analysis
     if all_competitors:
@@ -105,7 +108,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         competitor_content = "No competitor content was retrieved. Proceed with general knowledge."
 
     # --- Step 2: SERP analysis ---
-    print("[net_new_content_brief] Step 2/6: Analyzing competitor content structure...")
+    log.step("Analyzing competitor content structure")
     serp_prompt = load_prompt("brief_serp_analysis")
     serp_rendered = render_prompt(
         serp_prompt,
@@ -123,14 +126,14 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=serp_rendered.config.max_tokens,
     )
     serp_data = _parse_json_response(serp_analysis)
-    print("  SERP analysis complete.")
+    log.step_done("SERP analysis complete")
 
     # Load artifacts early — needed for gap analysis, brief generation, and brand review
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
 
     # --- Step 3: Gap identification ---
-    print("[net_new_content_brief] Step 3/6: Identifying content gaps...")
+    log.step("Identifying content gaps")
     gaps_prompt = load_prompt("brief_gaps")
     gaps_rendered = render_prompt(
         gaps_prompt,
@@ -150,10 +153,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=gaps_rendered.config.temperature,
         max_tokens=gaps_rendered.config.max_tokens,
     )
-    print("  Gap analysis complete.")
+    log.step_done("Gap analysis complete")
 
     # --- Step 4: Brief generation ---
-    print("[net_new_content_brief] Step 4/6: Generating content brief...")
+    log.step("Generating content brief")
     brief_prompt = load_prompt("brief_generate")
     brief_rendered = render_prompt(
         brief_prompt,
@@ -175,10 +178,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=brief_rendered.config.temperature,
         max_tokens=brief_rendered.config.max_tokens,
     )
-    print("  Brief generation complete.")
+    log.step_done("Brief generation complete")
 
     # --- Step 5: Brand alignment review ---
-    print("[net_new_content_brief] Step 5/6: Reviewing brand alignment...")
+    log.step("Reviewing brand alignment")
     review_prompt = load_prompt("brief_brand_review")
     review_rendered = render_prompt(
         review_prompt,
@@ -195,10 +198,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=review_rendered.config.temperature,
         max_tokens=review_rendered.config.max_tokens,
     )
-    print("  Brand alignment review complete.")
+    log.step_done("Brand alignment review complete")
 
     # --- Step 6: Assemble final brief ---
-    print("[net_new_content_brief] Step 6/6: Assembling final brief...")
+    log.step("Assembling final brief")
     from datetime import date
     today = date.today().isoformat()
 
@@ -269,7 +272,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     # --- Optional step: write full article from the brief ---
     article_path_relative: str | None = None
     if workflow_input.write_article:
-        print("[net_new_content_brief] Optional step: drafting full article from brief (Opus)...")
+        log.detail("Drafting full article from brief (Opus)")
         article_prompt = load_prompt("brief_write_article")
         article_rendered = render_prompt(
             article_prompt,
@@ -307,10 +310,12 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         article_path_relative = f"outputs/net_new_content_brief/{article_path.name}"
         # Append a pointer to the article into the brief itself
         final_brief = final_brief + f"\n\n---\n\n## Drafted Article\n\nA full article drafted from this brief is available at: `{article_path_relative}`\n"
-        print(f"  Article saved to {article_path_relative}")
+        log.detail(f"Article saved to {article_path_relative}")
+
+    log.step_done()
 
     # --- Step 7: Persist ---
-    print("[net_new_content_brief] Saving output...")
+    log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="net_new_content_brief",
         workflow_input=workflow_input,
@@ -334,9 +339,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         },
     )
 
-    print(f"[net_new_content_brief] Done. Brief: {output.markdown_path}")
     if article_path_relative:
-        print(f"[net_new_content_brief]        Article: {article_path_relative}")
+        log.detail(f"Article: {article_path_relative}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

@@ -33,6 +33,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search_and_scrape
 from lib.persistence import persist_workflow_run
 
@@ -55,19 +56,21 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the page audit workflow. Called by the server or standalone."""
 
-    print(f"[page_audit] Starting audit: {workflow_input.topic}")
+    log = WorkflowLogger("page_audit", total_steps=8)
+    log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
-    print("[page_audit] Step 1/7: Fetching page content...")
+    log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
     if not source_content and workflow_input.url:
         source_content = scrape_page(workflow_input.url)
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
-    print(f"  Got {len(source_content)} chars of content.")
+    log.detail(f"Got {len(source_content):,} chars of content")
+    log.step_done()
 
     # --- Step 2: Structural analysis ---
-    print("[page_audit] Step 2/7: Analyzing content structure...")
+    log.step("Analyzing content structure")
     analyze_prompt = load_prompt("page_audit_analyze")
     analyze_rendered = render_prompt(
         analyze_prompt,
@@ -84,10 +87,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=analyze_rendered.config.temperature,
         max_tokens=analyze_rendered.config.max_tokens,
     )
-    print("  Structure analysis complete.")
+    log.step_done("Structure analysis complete")
 
     # --- Step 3: Extract primary keywords ---
-    print("[page_audit] Step 3/7: Extracting primary keywords...")
+    log.step("Extracting primary keywords")
     kw_prompt = load_prompt("page_audit_extract_keywords")
     kw_rendered = render_prompt(
         kw_prompt,
@@ -110,11 +113,12 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     keyword_data = _parse_json_response(kw_response)
     primary_keywords = keyword_data.get("primary_keywords", workflow_input.keywords or [])
     search_queries = keyword_data.get("search_queries", primary_keywords[:3])
-    print(f"  Primary keywords: {primary_keywords}")
-    print(f"  Search queries: {search_queries}")
+    log.detail(f"Primary keywords: {', '.join(primary_keywords) if primary_keywords else '(none)'}")
+    log.detail(f"Search queries: {', '.join(search_queries) if search_queries else '(none)'}")
+    log.step_done()
 
     # --- Step 4: Search and scrape competitor pages ---
-    print("[page_audit] Step 4/7: Searching and scraping competitor pages...")
+    log.step("Searching and scraping competitor pages")
     all_competitors: list[dict] = []
     seen_urls: set[str] = set()
     target_url = (workflow_input.url or "").rstrip("/").lower()
@@ -128,7 +132,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     queries_to_search = list(dict.fromkeys(queries_to_search))
 
     for query in queries_to_search:
-        print(f"  Searching & scraping: '{query}'")
+        log.detail(f"Searching & scraping: '{query}'")
         results = search_and_scrape(query, limit=5, scrape_content=True)
 
         for r in results:
@@ -146,7 +150,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         if len(all_competitors) >= 8:
             break
 
-    print(f"  Found {len(all_competitors)} unique competitor pages with content.")
+    log.detail(f"Found {len(all_competitors)} unique competitor pages with content")
+    log.step_done()
 
     if all_competitors:
         competitor_sections = []
@@ -162,7 +167,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         competitor_content = "No competitor content was retrieved. Provide analysis based on general SEO knowledge."
 
     # --- Step 5: Brand evaluation ---
-    print("[page_audit] Step 5/7: Evaluating against brand artifacts...")
+    log.step("Evaluating against brand artifacts")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
 
@@ -187,10 +192,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=eval_rendered.config.temperature,
         max_tokens=eval_rendered.config.max_tokens,
     )
-    print("  Brand evaluation complete.")
+    log.step_done("Brand evaluation complete")
 
     # --- Step 6: Competitive gap analysis ---
-    print("[page_audit] Step 6/7: Running competitive gap analysis...")
+    log.step("Running competitive gap analysis")
     gap_prompt = load_prompt("page_audit_gaps")
     gap_rendered = render_prompt(
         gap_prompt,
@@ -211,10 +216,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=gap_rendered.config.temperature,
         max_tokens=gap_rendered.config.max_tokens,
     )
-    print("  Competitive gap analysis complete.")
+    log.step_done("Gap analysis complete")
 
     # --- Step 7: Synthesize final report ---
-    print("[page_audit] Step 7/7: Synthesizing audit report...")
+    log.step("Synthesizing audit report")
     synth_prompt = load_prompt("page_audit_synthesize")
     synth_rendered = render_prompt(
         synth_prompt,
@@ -236,10 +241,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=synth_rendered.config.temperature,
         max_tokens=synth_rendered.config.max_tokens,
     )
-    print("  Synthesis complete.")
+    log.step_done("Synthesis complete")
 
     # --- Step 8: Persist ---
-    print("[page_audit] Saving output...")
+    log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="page_audit",
         workflow_input=workflow_input,
@@ -259,7 +264,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         },
     )
 
-    print(f"[page_audit] Done. Output: {output.markdown_path}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

@@ -38,6 +38,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import scrape_page
 from lib.persistence import persist_workflow_run, OUTPUTS_DIR, slugify, timestamp
 from lib.sitemap import parse_sitemap, default_sitemap_url
@@ -78,25 +79,27 @@ def _format_ranked_candidates(ranked: list, target_url: str) -> str:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the internal link recommendations workflow."""
 
-    print(f"[internal_link_recommendations] Starting: {workflow_input.topic}")
+    log = WorkflowLogger("internal_link_recommendations", total_steps=8)
+    log.start(workflow_input.topic)
 
     # --- Step 1: Source content ---
-    print("[internal_link_recommendations] Step 1/7: Fetching page content...")
+    log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
     if not source_content and workflow_input.url:
         source_content = scrape_page(workflow_input.url)
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
-    print(f"  Got {len(source_content)} chars of content.")
+    log.detail(f"Got {len(source_content)} chars of content")
+    log.step_done()
 
     # --- Step 2: Sitemap ---
-    print("[internal_link_recommendations] Step 2/7: Fetching and parsing sitemap...")
+    log.step("Fetching and parsing sitemap")
     sitemap_url = workflow_input.sitemap_url
     if not sitemap_url:
         if not workflow_input.url:
             raise ValueError("sitemap_url is required when url is not provided.")
         sitemap_url = default_sitemap_url(workflow_input.url)
-    print(f"  Sitemap: {sitemap_url}")
+    log.detail(f"Sitemap: {sitemap_url}")
     try:
         sitemap_urls = parse_sitemap(sitemap_url)
     except Exception as exc:
@@ -104,10 +107,11 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             f"Could not load sitemap at {sitemap_url}. "
             "Provide an explicit sitemap_url in the request, or verify the site exposes one."
         ) from exc
-    print(f"  Parsed {len(sitemap_urls)} URLs from sitemap.")
+    log.detail(f"Parsed {len(sitemap_urls)} URLs from sitemap")
+    log.step_done()
 
     # --- Step 3: Extract existing links + topics from page ---
-    print("[internal_link_recommendations] Step 3/7: Extracting existing links and topics...")
+    log.step("Extracting existing links and topics")
     extract_prompt = load_prompt("internal_links_extract")
     extract_rendered = render_prompt(
         extract_prompt,
@@ -146,8 +150,9 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     topic_phrases = topics_data.get("key_topics", [])
     entity_phrases = topics_data.get("entities", [])
     all_topic_phrases = list(dict.fromkeys(topic_phrases + entity_phrases))  # preserve order, dedupe
-    print(f"  Found {len(links_data.get('internal_links', []))} existing links, "
-          f"{len(all_topic_phrases)} topics/entities.")
+    log.detail(f"Found {len(links_data.get('internal_links', []))} existing links, "
+               f"{len(all_topic_phrases)} topics/entities")
+    log.step_done()
 
     if not all_topic_phrases:
         raise RuntimeError(
@@ -155,13 +160,17 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         )
 
     # --- Step 4: Embed and rank ---
-    print("[internal_link_recommendations] Step 4/7: Ranking sitemap URLs by semantic similarity...")
+    log.step("Ranking sitemap URLs by semantic similarity")
     ranked = rank_urls_by_similarity(all_topic_phrases, sitemap_urls, top_n=30)
     ranked_text = _format_ranked_candidates(ranked, workflow_input.url or "")
-    print(f"  Top candidate score: {ranked[0].score:.3f} ({ranked[0].url})" if ranked else "  No candidates ranked.")
+    if ranked:
+        log.detail(f"Top candidate score: {ranked[0].score:.3f} ({ranked[0].url})")
+    else:
+        log.detail("No candidates ranked")
+    log.step_done()
 
     # --- Step 5: Opus selects links ---
-    print("[internal_link_recommendations] Step 5/7: Opus selecting and placing links...")
+    log.step("Opus selecting and placing links")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
     gen_prompt = load_prompt("internal_links_generate")
@@ -187,10 +196,11 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     link_plan = _parse_json_response(plan_response)
     selected = link_plan.get("selected_links", [])
     rejected = link_plan.get("rejected_candidates", [])
-    print(f"  Selected {len(selected)} links, rejected {len(rejected)} candidates.")
+    log.detail(f"Selected {len(selected)} links, rejected {len(rejected)} candidates")
+    log.step_done()
 
     # --- Step 6: Sonnet inserts links into the article ---
-    print("[internal_link_recommendations] Step 6/7: Inserting links into the article...")
+    log.step("Inserting links into the article")
     if selected:
         insert_prompt = load_prompt("internal_links_insert")
         insert_rendered = render_prompt(
@@ -209,10 +219,11 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         )
     else:
         linked_article = source_content  # nothing to insert
-    print(f"  Linked article: {len(linked_article)} chars.")
+    log.detail(f"Linked article: {len(linked_article)} chars")
+    log.step_done()
 
     # --- Step 7: Synthesize report ---
-    print("[internal_link_recommendations] Step 7/7: Synthesizing recommendations report...")
+    log.step("Synthesizing recommendations report")
     synth_prompt = load_prompt("internal_links_synthesize")
     synth_rendered = render_prompt(
         synth_prompt,
@@ -233,8 +244,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=synth_rendered.config.max_tokens,
     )
 
+    log.step_done()
+
     # --- Persist ---
-    print("[internal_link_recommendations] Saving outputs...")
+    log.step("Saving outputs")
     output = persist_workflow_run(
         workflow_name="internal_link_recommendations",
         workflow_input=workflow_input,
@@ -270,9 +283,9 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         "",
     ])
     linked_path.write_text(linked_header + linked_article.strip() + "\n", encoding="utf-8")
-    print(f"  Linked article saved to {linked_path.relative_to(linked_dir.parent.parent)}")
-
-    print(f"[internal_link_recommendations] Done. Report: {output.markdown_path}")
+    log.detail(f"Linked article saved to {linked_path.relative_to(linked_dir.parent.parent)}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

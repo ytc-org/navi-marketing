@@ -7,43 +7,32 @@ This is a Claude-first content ops system for the Navi marketing team. It runs c
 ## Architecture
 
 ```
-Claude (Cowork)
+Claude (Cowork or Claude Code)
   ├── Drive MCP → fetches artifacts → writes artifacts/*.md (gitignored)
-  └── bash curl → POST http://localhost:8100/api/<workflow>
+  └── bash curl → POST <server-url>/api/<workflow>
                    │
-                   └── Python server → runs workflow async → saves to outputs/
+                   └── Python server (on user's Mac) → runs workflow async → saves to outputs/
                    │
-                   └── bash curl → GET /api/jobs/<job_id> (poll until done)
+                   └── bash curl → GET <server-url>/api/jobs/<job_id> (poll until done)
 ```
 
-Server runs inside Cowork's bash sandbox (Claude starts it via `nohup python3 py/server.py &`). Reachable at `http://localhost:8100` from subsequent bash calls. Outputs land in the sandbox; Claude copies each deliverable to the session outputs dir and shares it as a `computer://` link so the user can save it.
+**The server runs on the user's Mac in a Terminal window — not inside the Cowork sandbox.** This is the only supported setup. It's the only configuration that works reliably: the Mac has real internet egress (for Firecrawl, OpenAI, Anthropic), the process persists across bash calls, and outputs land directly in the user's local `outputs/` folder.
 
-If the user chooses to start the server themselves on their Mac, it's reachable at `http://host.docker.internal:8100` instead — workflows still work the same way.
+Base URLs:
+- **From Claude Code (running on the Mac):** `http://localhost:8100`
+- **From Cowork (sandbox reaches the host via docker bridge):** `http://host.docker.internal:8100`
 
-## Quick Start
+Claude should never try to start the server itself inside the sandbox — that path exists in old docs but doesn't work. If the server isn't running, ask the user to run `bash start.sh` in a Terminal window on their Mac.
 
-### First-time setup (once)
+## Quick Start (for the user)
+
+Every session — first time or tenth time — the command is the same:
 
 ```bash
-bash setup.sh
+bash start.sh
 ```
 
-Checks Python, installs dependencies, prompts for API keys.
-
-### Starting the server
-
-Claude starts it automatically inside the bash sandbox before the first workflow each session. If you want to run it on your Mac instead (so outputs land in your local `outputs/` folder), do:
-
-```bash
-python3 py/server.py
-```
-
-Leave the Terminal window open while using workflows. Server runs on port 8100.
-
-### Stopping the server
-
-If Claude started it: it runs until the sandbox is torn down. No action needed.
-If you started it: `Ctrl+C` in the Terminal window.
+On the first run this triggers first-time setup (Python check, dependency install, API-key prompts) and then starts the server. Every run after that just starts the server. Leave the Terminal window open while you work; `Ctrl+C` stops it.
 
 ## Primary Directories
 
@@ -130,16 +119,15 @@ cd /path/to/navi-marketing && git pull
 ## Troubleshooting
 
 **Connection refused from Claude**
-The server isn't running. Claude should start it in the bash sandbox (`nohup python3 py/server.py > /tmp/wf-server.log 2>&1 &`) and health-check with `curl http://localhost:8100/api/health`.
+The server isn't running. Ask the user to open Terminal on their Mac, `cd` into the repo, and run `bash start.sh`. Then health-check from your environment:
+- Claude Code: `curl http://localhost:8100/api/health`
+- Cowork: `curl http://host.docker.internal:8100/api/health`
 
 **Server won't start — "Address already in use"**
-Server is already running. Use the existing one, or kill it and restart.
+Server is already running in another Terminal window. Use the existing one, or stop it and restart.
 
-**Server won't start — missing dependencies**
-Run: `python3 -m pip install -r py/requirements.txt`
-
-**Server won't start — missing .env**
-Run: `bash setup.sh` to create and configure your .env file.
+**Server won't start — missing dependencies or .env**
+`bash start.sh` handles both cases automatically (runs setup if `.env` is missing, installs deps if needed).
 
 **Job endpoint returns 404**
 The server was restarted (in-memory job store cleared). Re-kick the workflow.

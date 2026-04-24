@@ -17,6 +17,9 @@ outputs/*
 tracking/*
 !tracking/.gitkeep
 
+# CLI job state (fork-and-detach wrapper) — local only
+jobs/
+
 # Python
 __pycache__/
 *.pyc

@@ -29,6 +29,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search
 from lib.persistence import persist_workflow_run
 
@@ -51,19 +52,21 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the metadata suggestions workflow. Called by the server or standalone."""
 
-    print(f"[metadata_suggestions] Starting metadata audit: {workflow_input.topic}")
+    log = WorkflowLogger("metadata_suggestions", total_steps=7)
+    log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
-    print("[metadata_suggestions] Step 1/6: Fetching page content...")
+    log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
     if not source_content and workflow_input.url:
         source_content = scrape_page(workflow_input.url)
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
-    print(f"  Got {len(source_content)} chars of content.")
+    log.detail(f"Got {len(source_content)} chars of content")
+    log.step_done()
 
     # --- Step 2: Extract current metadata ---
-    print("[metadata_suggestions] Step 2/6: Extracting current metadata...")
+    log.step("Extracting current metadata")
     extract_prompt = load_prompt("metadata_extract")
     extract_rendered = render_prompt(
         extract_prompt,
@@ -81,10 +84,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=extract_rendered.config.max_tokens,
     )
     current_metadata = _parse_json_response(extract_response)
-    print("  Current metadata extracted.")
+    log.step_done("Current metadata extracted")
 
     # --- Step 3: Keyword analysis ---
-    print("[metadata_suggestions] Step 3/6: Analyzing keywords and placement...")
+    log.step("Analyzing keywords and placement")
     kw_prompt = load_prompt("metadata_keywords")
     kw_rendered = render_prompt(
         kw_prompt,
@@ -106,10 +109,11 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     keyword_analysis = _parse_json_response(kw_response)
     primary_keywords = keyword_analysis.get("primary_keywords", workflow_input.keywords or [])
-    print(f"  Primary keywords identified: {primary_keywords}")
+    log.detail(f"Primary keywords identified: {primary_keywords}")
+    log.step_done()
 
     # --- Step 4: Search SERP landscape for competitor metadata ---
-    print("[metadata_suggestions] Step 4/6: Searching SERP landscape...")
+    log.step("Searching SERP landscape")
     serp_data: list[dict] = []
 
     # Search using primary keywords (use first 2-3 for SERP metadata)
@@ -120,7 +124,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         search_queries = [workflow_input.topic]
 
     for query in search_queries[:2]:  # Search only top 2 queries to save cost
-        print(f"  Searching: '{query}'")
+        log.detail(f"Searching: '{query}'")
         results = search(query, limit=10)
         for r in results:
             if r.url and r.title:  # Only keep results with metadata
@@ -133,7 +137,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         if len(serp_data) >= 15:
             break
 
-    print(f"  Found {len(serp_data)} SERP results with metadata.")
+    log.detail(f"Found {len(serp_data)} SERP results with metadata")
+    log.step_done()
 
     # Format SERP data for prompt
     serp_content = ""
@@ -151,7 +156,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         serp_content = "No SERP data available. Generate recommendations based on general SEO best practices."
 
     # --- Step 5: Generate metadata options ---
-    print("[metadata_suggestions] Step 5/6: Generating metadata options...")
+    log.step("Generating metadata options")
     gen_prompt = load_prompt("metadata_generate")
     gen_rendered = render_prompt(
         gen_prompt,
@@ -171,10 +176,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=gen_rendered.config.temperature,
         max_tokens=gen_rendered.config.max_tokens,
     )
-    print("  Metadata options generated.")
+    log.step_done("Metadata options generated")
 
     # --- Step 6: Synthesize final recommendations ---
-    print("[metadata_suggestions] Step 6/6: Synthesizing recommendations...")
+    log.step("Synthesizing recommendations")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
 
@@ -201,10 +206,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=synth_rendered.config.temperature,
         max_tokens=synth_rendered.config.max_tokens,
     )
-    print("  Synthesis complete.")
+    log.step_done("Synthesis complete")
 
     # --- Step 7: Persist ---
-    print("[metadata_suggestions] Saving output...")
+    log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="metadata_suggestions",
         workflow_input=workflow_input,
@@ -218,7 +223,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         },
     )
 
-    print(f"[metadata_suggestions] Done. Output: {output.markdown_path}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

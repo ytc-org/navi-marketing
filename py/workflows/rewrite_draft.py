@@ -31,6 +31,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search_and_scrape
 from lib.persistence import persist_workflow_run
 
@@ -53,19 +54,21 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the rewrite draft workflow. Called by the server or standalone."""
 
-    print(f"[rewrite_draft] Starting rewrite draft: {workflow_input.topic}")
+    log = WorkflowLogger("rewrite_draft", total_steps=8)
+    log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
-    print("[rewrite_draft] Step 1/7: Fetching page content...")
+    log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
     if not source_content and workflow_input.url:
         source_content = scrape_page(workflow_input.url)
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
-    print(f"  Got {len(source_content)} chars of content.")
+    log.detail(f"Got {len(source_content)} chars of content")
+    log.step_done()
 
     # --- Step 2: Content diagnosis ---
-    print("[rewrite_draft] Step 2/7: Diagnosing current content...")
+    log.step("Diagnosing current content")
     diagnose_prompt = load_prompt("rewrite_diagnose")
     diagnose_rendered = render_prompt(
         diagnose_prompt,
@@ -83,10 +86,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=diagnose_rendered.config.max_tokens,
     )
     diagnosis_data = _parse_json_response(diagnosis_response)
-    print("  Diagnosis complete.")
+    log.step_done("Diagnosis complete")
 
     # --- Step 3: Search and scrape competitor pages ---
-    print("[rewrite_draft] Step 3/7: Searching and scraping competitor pages...")
+    log.step("Searching and scraping competitor pages")
     all_competitors: list[dict] = []
     seen_urls: set[str] = set()
     target_url = (workflow_input.url or "").rstrip("/").lower()
@@ -98,7 +101,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     search_queries = search_queries[:3]
 
     for query in search_queries:
-        print(f"  Searching & scraping: '{query}'")
+        log.detail(f"Searching & scraping: '{query}'")
         results = search_and_scrape(query, limit=5, scrape_content=True)
 
         for r in results:
@@ -116,7 +119,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         if len(all_competitors) >= 8:
             break
 
-    print(f"  Found {len(all_competitors)} unique competitor pages with content.")
+    log.detail(f"Found {len(all_competitors)} unique competitor pages with content")
+    log.step_done()
 
     if all_competitors:
         competitor_sections = []
@@ -132,13 +136,13 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         competitor_content = "No competitor content was retrieved. Provide plan based on general best practices."
 
     # --- Step 4: Load artifacts ---
-    print("[rewrite_draft] Step 4/7: Loading brand artifacts...")
+    log.step("Loading brand artifacts")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
-    print("  Artifacts loaded.")
+    log.step_done("Artifacts loaded")
 
     # --- Step 5: Build rewrite plan ---
-    print("[rewrite_draft] Step 5/7: Building rewrite plan...")
+    log.step("Building rewrite plan")
     plan_prompt = load_prompt("rewrite_plan")
     plan_rendered = render_prompt(
         plan_prompt,
@@ -160,10 +164,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=plan_rendered.config.temperature,
         max_tokens=plan_rendered.config.max_tokens,
     )
-    print("  Rewrite plan complete.")
+    log.step_done("Rewrite plan complete")
 
     # --- Step 6: Draft the rewrite ---
-    print("[rewrite_draft] Step 6/7: Writing rewrite draft...")
+    log.step("Writing rewrite draft")
     draft_prompt = load_prompt("rewrite_draft_content")
     draft_rendered = render_prompt(
         draft_prompt,
@@ -185,10 +189,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=draft_rendered.config.temperature,
         max_tokens=draft_rendered.config.max_tokens,
     )
-    print("  Draft complete.")
+    log.step_done("Draft complete")
 
     # --- Step 7: Quality check ---
-    print("[rewrite_draft] Step 7/7: Running quality check...")
+    log.step("Running quality check")
     quality_prompt = load_prompt("rewrite_quality")
     quality_rendered = render_prompt(
         quality_prompt,
@@ -207,10 +211,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=quality_rendered.config.max_tokens,
     )
     quality_data = _parse_json_response(quality_response)
-    print("  Quality check complete.")
+    log.step_done("Quality check complete")
 
     # --- Step 8: Final assembly ---
-    print("[rewrite_draft] Assembling final output...")
+    log.step("Assembling final output")
     final_report = _assemble_report(
         topic=workflow_input.topic,
         url=workflow_input.url,
@@ -237,7 +241,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         },
     )
 
-    print(f"[rewrite_draft] Done. Output: {output.markdown_path}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

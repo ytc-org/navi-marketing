@@ -32,6 +32,7 @@ from lib.validation import WorkflowInput, WorkflowOutput
 from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
+from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search_and_scrape
 from lib.persistence import persist_workflow_run
 
@@ -54,19 +55,21 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the refresh recommendations workflow. Called by the server or standalone."""
 
-    print(f"[refresh_recommendations] Starting workflow: {workflow_input.topic}")
+    log = WorkflowLogger("refresh_recommendations", total_steps=8)
+    log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
-    print("[refresh_recommendations] Step 1/7: Fetching page content...")
+    log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
     if not source_content and workflow_input.url:
         source_content = scrape_page(workflow_input.url)
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
-    print(f"  Got {len(source_content)} chars of content.")
+    log.detail(f"Got {len(source_content)} chars of content")
+    log.step_done()
 
     # --- Step 2: Structural analysis ---
-    print("[refresh_recommendations] Step 2/7: Analyzing content structure...")
+    log.step("Analyzing content structure")
     analyze_prompt = load_prompt("refresh_analyze")
     analyze_rendered = render_prompt(
         analyze_prompt,
@@ -84,10 +87,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=analyze_rendered.config.max_tokens,
     )
     structural_data = _parse_json_response(structural_analysis)
-    print("  Structural analysis complete.")
+    log.step_done("Structural analysis complete")
 
     # --- Step 3: Freshness audit ---
-    print("[refresh_recommendations] Step 3/7: Auditing content freshness...")
+    log.step("Auditing content freshness")
     freshness_prompt = load_prompt("refresh_freshness")
     freshness_rendered = render_prompt(
         freshness_prompt,
@@ -106,10 +109,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         max_tokens=freshness_rendered.config.max_tokens,
     )
     freshness_data = _parse_json_response(freshness_audit)
-    print("  Freshness audit complete.")
+    log.step_done("Freshness audit complete")
 
     # --- Step 4: Search and scrape competitor pages ---
-    print("[refresh_recommendations] Step 4/7: Searching and scraping competitor pages...")
+    log.step("Searching and scraping competitor pages")
     all_competitors: list[dict] = []
     seen_urls: set[str] = set()
     target_url = (workflow_input.url or "").rstrip("/").lower()
@@ -120,7 +123,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         search_keywords = [workflow_input.topic]
 
     for query in search_keywords[:3]:
-        print(f"  Searching & scraping: '{query}'")
+        log.detail(f"Searching & scraping: '{query}'")
         results = search_and_scrape(query, limit=5, scrape_content=True)
 
         for r in results:
@@ -138,7 +141,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         if len(all_competitors) >= 5:
             break
 
-    print(f"  Found {len(all_competitors)} unique competitor pages with content.")
+    log.detail(f"Found {len(all_competitors)} unique competitor pages with content")
+    log.step_done()
 
     if all_competitors:
         competitor_sections = []
@@ -154,7 +158,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         competitor_content = "No competitor content was retrieved. Provide analysis based on general knowledge of the topic."
 
     # --- Step 5: Competitive freshness comparison ---
-    print("[refresh_recommendations] Step 5/7: Running competitive freshness comparison...")
+    log.step("Running competitive freshness comparison")
     competitive_prompt = load_prompt("refresh_competitive")
     competitive_rendered = render_prompt(
         competitive_prompt,
@@ -174,10 +178,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=competitive_rendered.config.temperature,
         max_tokens=competitive_rendered.config.max_tokens,
     )
-    print("  Competitive freshness comparison complete.")
+    log.step_done("Competitive freshness comparison complete")
 
     # --- Step 6: Brand alignment check ---
-    print("[refresh_recommendations] Step 6/7: Evaluating brand alignment...")
+    log.step("Evaluating brand alignment")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
 
@@ -200,10 +204,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=brand_rendered.config.temperature,
         max_tokens=brand_rendered.config.max_tokens,
     )
-    print("  Brand alignment check complete.")
+    log.step_done("Brand alignment check complete")
 
     # --- Step 7: Synthesize recommendations ---
-    print("[refresh_recommendations] Step 7/7: Synthesizing refresh recommendations...")
+    log.step("Synthesizing refresh recommendations")
     synth_prompt = load_prompt("refresh_synthesize")
     synth_rendered = render_prompt(
         synth_prompt,
@@ -225,10 +229,10 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         temperature=synth_rendered.config.temperature,
         max_tokens=synth_rendered.config.max_tokens,
     )
-    print("  Synthesis complete.")
+    log.step_done("Synthesis complete")
 
     # --- Step 8: Persist ---
-    print("[refresh_recommendations] Saving output...")
+    log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="refresh_recommendations",
         workflow_input=workflow_input,
@@ -248,7 +252,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         },
     )
 
-    print(f"[refresh_recommendations] Done. Output: {output.markdown_path}")
+    log.step_done()
+    log.done(output.markdown_path)
     return output
 
 

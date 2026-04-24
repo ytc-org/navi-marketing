@@ -8,7 +8,8 @@ You ask Claude (in Cowork) to do content work. Claude runs the workflows, reads 
 
 ## What you need before you start
 
-- Cowork (the Claude desktop app) installed and signed in
+- Either **Cowork** (Claude desktop app) or **Claude Code** (CLI) installed and signed in
+- Python 3.10+ on your Mac (the installer will check)
 - An **Anthropic** API key ([get one](https://console.anthropic.com/settings/keys))
 - A **Firecrawl** API key ([get one](https://firecrawl.dev))
 - An **OpenAI** API key ([get one](https://platform.openai.com/api-keys)) — only for the internal-link workflow; skip if you don't plan to use it
@@ -16,16 +17,17 @@ You ask Claude (in Cowork) to do content work. Claude runs the workflows, reads 
 
 ## One-time setup
 
-Clone this repo somewhere on your Mac, then in Cowork:
+Clone this repo somewhere on your Mac. Then:
 
-1. Ask Claude to connect to the repo folder (or drag the folder into Cowork).
-2. Paste your API keys when Claude asks for them — it'll set up the `.env` file for you.
+1. Open Terminal, `cd` into the folder, and run: **`bash start.sh`**
+2. On first run, it'll walk you through Python setup and ask for your API keys. Paste them when prompted.
+3. Once setup finishes, it starts the workflow server. Leave the Terminal window open.
+4. In Cowork, ask Claude to connect to the repo folder (or drag the folder in). Claude Code users can skip this — it's already connected.
 
-That's it. You don't need to open Terminal.
+## Every work session
 
-## Every time you want to run a workflow
-
-Just ask Claude. Examples:
+1. Open Terminal, `cd` into the folder, run **`bash start.sh`**. Leave it open.
+2. Talk to Claude. Examples:
 
 - "Audit this page: https://www.yournavi.com/posts/best-prepaid-unlimited-plans"
 - "Give me refresh recommendations for [URL]"
@@ -34,10 +36,10 @@ Just ask Claude. Examples:
 
 Claude will:
 
-1. Start the workflow server if it isn't already running.
-2. Pull the latest brand artifacts from Google Drive.
+1. Pull the latest brand artifacts from Google Drive.
+2. Call the workflow server running on your Mac (that Terminal window from step 1).
 3. Run the workflow (usually 2–5 minutes, up to ~8 for a full article draft).
-4. **Show you the finished output as a link in chat.** Click to preview, then save it wherever you want — Desktop, a Drive folder, a shared drive, etc.
+4. **Show you the finished output as a link in chat.** Outputs also land in `outputs/` on your Mac, so you can open them in Finder anytime.
 
 ## Where brand artifacts live
 
@@ -60,36 +62,24 @@ When you want to update voice, personas, guardrails, or any other brand context,
 
 ## Saving outputs
 
-Every workflow produces at least one Markdown file (some produce two — e.g., internal-link recommendations produces both a report and a linked version of the article). Claude will show you each one as a link in chat. Click it to preview, then save it wherever the team keeps finished work.
-
-Outputs live on Claude's side until you save them — don't expect to find them by browsing Finder.
+Every workflow produces at least one Markdown file (some produce two — e.g., internal-link recommendations produces both a report and a linked version). Files land in `outputs/` in this repo on your Mac. Claude will also share a link in chat so you can open it immediately.
 
 ## What if something breaks
+
+**Claude says "connection refused" or "can't reach the server"**
+Your Terminal window with `bash start.sh` isn't running. Open Terminal, `cd` into the repo, run `bash start.sh`, then ask Claude to try again.
 
 **Claude says it can't find the brand artifacts**
 The Google Drive connector probably isn't connected in Cowork. Open Cowork settings, connect Google Drive, and ask Claude to try again.
 
 **Workflow says it failed and mentions an API key**
-Your `.env` file is missing a key or has a typo. Ask Claude to open it and fix the key.
+Your `.env` file is missing a key or has a typo. Open `.env` in any editor and fix it, then restart `bash start.sh`.
 
 **Output looks generic or off-brand**
 Artifacts probably weren't fetched before the workflow ran. Ask Claude: "Re-fetch artifacts from Drive and run this again."
 
 **Something else**
-Ask Claude. It has access to the logs and can diagnose most issues.
-
-## Advanced: running the server yourself
-
-If you want workflow outputs to land directly in `~/repos/navi-marketing/outputs/` on your Mac (so you can browse them in Finder later), you can start the server yourself instead of letting Claude start it:
-
-```
-cd ~/repos/navi-marketing
-python3 py/server.py
-```
-
-Leave that Terminal window open while you work. Stop it with `Ctrl+C` when you're done.
-
-Most people don't need this — saving from the chat links works fine.
+Ask Claude. It has access to the server logs (in the Terminal window) and can diagnose most issues.
 
 ## For whoever maintains the code
 
