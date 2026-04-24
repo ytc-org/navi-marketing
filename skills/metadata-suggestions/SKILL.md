@@ -5,7 +5,7 @@ Generate optimized title tags, meta descriptions, heading structures, and on-pag
 ## Prerequisites
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
-2. **Fetch artifacts from Drive.** See `skills/_shared/fetch-artifacts.md`.
+2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
 
 ## What to Ask the User
 

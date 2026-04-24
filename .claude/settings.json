@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash start.sh)",
+      "Bash(bash -n *)",
+      "Bash(lsof -ti:8100)",
+      "Bash(ls artifacts/)",
+      "Bash(ls artifacts)",
+      "Bash(ls -la artifacts/)",
+      "Bash(curl -sS http://localhost:8100/api/health)",
+      "Bash(curl -sS -m * http://localhost:8100/api/health)",
+      "Bash(curl -sS http://localhost:8100/api/workflows)",
+      "Bash(curl -sS http://localhost:8100/api/jobs/*)",
+      "Bash(curl -sS -m * http://localhost:8100/api/jobs/*)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/page_audit *)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/refresh_recommendations *)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/rewrite_draft *)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/metadata_suggestions *)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/internal_link_recommendations *)",
+      "Bash(curl -sS -X POST http://localhost:8100/api/net_new_content_brief *)",
+      "Bash(python3 -c \"import ast; ast.parse(open('py/server.py').read()); print('OK')\")",
+      "Bash(git pull)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ]
+  }
+}

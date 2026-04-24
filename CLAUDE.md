@@ -2,13 +2,15 @@
 
 This is a Claude-first content ops system for the Navi marketing team. It runs content workflows (page audits, rewrites, metadata suggestions, etc.) through a lightweight Python server that Claude calls via HTTP.
 
-**This repo is public.** Brand artifacts live in Google Drive, are fetched by Claude into a gitignored `artifacts/` folder before each workflow run, and are never committed.
+**This repo is public.** Brand artifacts live in a gitignored `artifacts/` folder on each user's machine and are never committed.
+
+> **Google Drive sync is currently disabled** for Navi's workspace. Do not call the Google Drive MCP during workflow runs. Use whatever files are already in `artifacts/`. If something is missing, ask the user to drop it in manually.
 
 ## Architecture
 
 ```
 Claude Code (on the user's Mac)
-  ├── Drive MCP → fetches artifacts → writes artifacts/*.md (gitignored)
+  ├── reads local artifacts/*.md (gitignored, managed by user)
   └── bash curl → POST http://localhost:8100/api/<workflow>
                    │
                    └── Python server (user's Mac) → runs workflow async → saves to outputs/
@@ -32,23 +34,23 @@ On the first run this triggers first-time setup (Python check, dependency instal
 
 ## Primary Directories
 
-- `artifacts/` — **Gitignored.** Brand context files, populated at runtime from Drive folder [1LLmvyrvzc3JTS_FSqlcmxQcSTPaJ_C0f](https://drive.google.com/drive/folders/1LLmvyrvzc3JTS_FSqlcmxQcSTPaJ_C0f). Never commit contents.
+- `artifacts/` — **Gitignored.** Brand context files, managed manually on each user's machine. Drive sync is disabled; never commit contents.
 - `outputs/` — **Gitignored.** Workflow-generated Markdown reports and JSON sidecars.
 - `tracking/` — **Gitignored.** Run logs. Every workflow execution appends a record here.
 - `py/workflows/` — Workflow Python code. Each file has a `run()` function.
 - `py/prompts/` — Prompt templates (YAML frontmatter + system/user tags).
 - `py/lib/` — Shared helpers (LLM calls, scraping, persistence, validation).
 - `skills/` — Skill files that teach Claude how to use each workflow.
-  - `skills/_shared/fetch-artifacts.md` — the Drive-fetch prerequisite every workflow needs.
+  - `skills/_shared/fetch-artifacts.md` — verify the local `artifacts/` folder before each workflow run (Drive sync disabled).
   - `skills/_shared/call-workflow.md` — the async POST → poll pattern every workflow uses.
 
 ## How to Run Workflows
 
-### Before every run: fetch artifacts from Drive
+### Before every run: verify local artifacts
 
-Claude should call the Google Drive MCP to pull the six expected docs (`workflow-context`, `company-context`, `writing-style`, `audience-personas`, `brand-guardrails`, `products-and-services`) from the Drive folder and write them to `artifacts/` as Markdown. See `skills/_shared/fetch-artifacts.md` for the full procedure.
+Claude should `ls artifacts/` and confirm the six expected files (`workflow-context.md`, `company-context.md`, `writing-style.md`, `audience-personas.md`, `brand-guardrails.md`, `products-and-services.md`) are present. If any are missing, tell the user — don't try to fetch from Drive. See `skills/_shared/fetch-artifacts.md` for the full procedure.
 
-If artifacts were fetched earlier in the same conversation and Drive hasn't been edited since, skipping the re-fetch is fine.
+**Do not call the Google Drive MCP.** Drive sync is disabled for Navi's workspace.
 
 ### Calling a workflow
 
@@ -99,7 +101,7 @@ See `skills/_shared/call-workflow.md` for the full pattern.
 
 - Always use the workflow server instead of freeform prompting for content tasks.
 - Read the relevant skill file in `skills/` before running a workflow.
-- Fetch artifacts from Drive before every workflow run (or confirm you already did it this conversation).
+- Verify `artifacts/` has the six expected files before every workflow run. Do not call the Google Drive MCP — Drive sync is disabled.
 - **Never commit anything under `artifacts/`, `outputs/`, or `tracking/`.** The repo is public; artifacts and outputs are confidential.
 - Write deliverables to the filesystem, not just chat output.
 - Do not add API keys or proprietary data to tracked files.
@@ -130,4 +132,4 @@ The server was restarted (in-memory job store cleared). Re-kick the workflow.
 Firecrawl can't scrape some sites (Reddit, CNET). Expected. The workflow analyzes whatever it can reach.
 
 **Workflow output looks generic / off-brand**
-`artifacts/` was probably empty at the time of the run. Re-fetch from Drive and run again.
+`artifacts/` was probably empty or incomplete at the time of the run. Ask the user to confirm the six artifact files are present, then run again.

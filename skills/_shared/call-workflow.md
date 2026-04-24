@@ -101,4 +101,4 @@ Keep it concise: link-first, no long trailing explanation.
 
 - **Connection refused**: server isn't running on the user's Mac. Ask them to open Terminal, `cd` into the repo, and run `bash start.sh`. Wait for confirmation, then re-run the health check.
 - **404 on the job endpoint**: the server was restarted (in-memory job store was cleared). Re-run the workflow.
-- **500 / status=error**: read the `error` field to the user. Common causes: missing API keys, Firecrawl rate limits, Drive fetch skipped so `artifacts/` was empty.
+- **500 / status=error**: read the `error` field to the user. Common causes: missing API keys, Firecrawl rate limits, empty `artifacts/` folder.

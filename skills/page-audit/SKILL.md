@@ -5,7 +5,7 @@ Audit a page against brand artifacts, real SERP competitor data, and content str
 ## Prerequisites
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
-2. **Fetch artifacts from Drive.** See `skills/_shared/fetch-artifacts.md`. Do this before calling the workflow unless you've already done it this conversation and the user hasn't mentioned editing Drive since.
+2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Confirm `artifacts/` has the six expected files before calling the workflow. Drive sync is disabled — do not fetch from Google Drive.
 
 ## What to Ask the User
 

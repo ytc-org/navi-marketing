@@ -5,7 +5,7 @@ Analyze a page, semantically rank links from the brand's own sitemap, have Opus 
 ## Prerequisites
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
-2. **Fetch artifacts from Drive.** See `skills/_shared/fetch-artifacts.md`.
+2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
 3. **OpenAI key required.** This workflow uses `OPENAI_API_KEY` for embeddings. If missing, the workflow will fail with a clear error pointing to setup.
 
 ## What to Ask the User

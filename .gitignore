@@ -1,6 +1,6 @@
 # ─── THIS REPO IS PUBLIC ───────────────────────────────────────────────────
-# Brand artifacts are confidential. They live in Google Drive and are
-# fetched to artifacts/ at runtime. They must NEVER be committed.
+# Brand artifacts are confidential. They live in a local artifacts/ folder
+# on each user's machine and must NEVER be committed.
 artifacts/*
 !artifacts/.gitkeep
 !artifacts/README.md
@@ -34,3 +34,6 @@ venv/
 *.swp
 *.swo
 .DS_Store
+
+# Claude Code — user-local permission overrides; shared settings live in .claude/settings.json
+.claude/settings.local.json
