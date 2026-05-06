@@ -5,6 +5,13 @@ artifacts/*
 !artifacts/.gitkeep
 !artifacts/README.md
 
+# Google Search Console service account JSON.
+# Distributed via 1Password — gives full read access to Navi's GSC property.
+# Each user drops their copy at ./credentials.json (repo root).
+# This MUST stay gitignored. Do not rename, do not commit, do not move.
+credentials.json
+credentials.*.json
+
 # Environment (API keys)
 .env
 .env.local

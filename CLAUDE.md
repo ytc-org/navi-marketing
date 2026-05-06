@@ -140,7 +140,7 @@ Firecrawl can't scrape some sites (Reddit, CNET). Expected. The workflow analyze
 `artifacts/` was probably empty or incomplete at the time of the run. Ask the user to confirm the six artifact files are present, then run again.
 
 **GSC tools aren't visible in Claude Code**
-`start.sh` registers the `gsc` MCP server with `claude mcp add` on first run. If the tools don't appear: (1) confirm `bash start.sh` has been run this session, (2) restart Claude Code so it picks up the registration, (3) check `.env` has `GSC_CREDENTIALS_PATH` pointing to a real service account JSON, (4) run `claude mcp list` to confirm `gsc` is registered.
+`start.sh` registers the `gsc` MCP server with `claude mcp add` on first run, but only if `./credentials.json` (the GSC service-account JSON, distributed via 1Password) exists at the repo root. If the tools don't appear: (1) confirm `./credentials.json` exists in the repo, (2) confirm `bash start.sh` has been run this session, (3) restart Claude Code so it picks up the registration, (4) run `claude mcp list` to confirm `gsc` is registered. If it's registered with a stale path (e.g. pointing at an old location from a previous setup), run `claude mcp remove gsc` and re-run `bash start.sh` to re-register against `./credentials.json`.
 
 **GSC returns no data for a URL**
 The service account email must have access to the Navi GSC property. Verify in Search Console → Settings → Users and permissions. Also confirm you queried the right property URL — Navi's is `https://www.yournavi.com/` (URL-prefix, **with** the `www.`). Calls to `https://yournavi.com/` will return empty data.

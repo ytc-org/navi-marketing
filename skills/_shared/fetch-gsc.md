@@ -31,7 +31,7 @@ If the GSC MCP tools aren't visible:
 
 1. Ask the user to confirm `bash start.sh` has been run this session — `start.sh` registers the MCP if it's missing.
 2. If still missing, instruct them: "Restart Claude Code so it picks up the newly registered MCP server."
-3. If they've never run setup, point them to `setup.sh` to add their `GSC_CREDENTIALS_PATH`.
+3. If they've never set up GSC, tell them to drop the service-account JSON (from 1Password) at `./credentials.json` in the repo root, then re-run `bash start.sh`. The script will register the MCP automatically.
 4. If GSC truly isn't available, **proceed with the workflow without GSC data** — call the workflow normally and skip the `gsc` field. The workflow will silently degrade.
 
 ## Step 2 — Pull the right data
