@@ -81,21 +81,19 @@ if ! $PYTHON_CMD -c "import anthropic, dotenv, yaml, pydantic, firecrawl" 2>/dev
 fi
 
 # ── Ensure GSC MCP is installed and registered with Claude Code ──────────────
-# Skips silently if the user hasn't filled in GSC_CREDENTIALS_PATH or doesn't
-# have the `claude` CLI on their PATH.
+# Looks for ./credentials.json at the repo root (the GSC service account JSON,
+# distributed to the team via 1Password). Skips silently if the file isn't
+# there or if the `claude` CLI isn't on PATH.
 
 ensure_gsc_mcp() {
-    # Read GSC creds path from .env without exporting everything
-    local gsc_path
-    gsc_path=$(grep -E "^GSC_CREDENTIALS_PATH=" .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
-
-    if [ -z "$gsc_path" ]; then
-        return 0  # User opted out of GSC
-    fi
+    # The credentials file is a fixed convention: ./credentials.json at repo root.
+    # cd into repo root happens at the top of this script, so $(pwd) is reliable.
+    local gsc_path="$(pwd)/credentials.json"
 
     if [ ! -f "$gsc_path" ]; then
-        echo -e "  ${YELLOW}⚠  GSC_CREDENTIALS_PATH points to a missing file: $gsc_path${NC}"
-        echo -e "  ${DIM}    Fix it in .env to enable GSC data in workflows. Skipping MCP setup.${NC}"
+        # No credentials file — user hasn't set up GSC yet. Quiet hint, then move on.
+        echo -e "  ${DIM}No credentials.json at repo root — GSC features disabled.${NC}"
+        echo -e "  ${DIM}    Drop your service account JSON at ./credentials.json to enable.${NC}"
         echo ""
         return 0
     fi
@@ -125,8 +123,13 @@ ensure_gsc_mcp() {
     local uvx_path
     uvx_path=$(command -v uvx)
 
-    # If GSC MCP is already registered, we're done
+    # Always (re-)register so the MCP picks up the current credentials.json path.
+    # If a stale registration exists pointing at an old path, this fixes it.
+    # Both commands are idempotent: remove silently no-ops when nothing's registered.
     if claude mcp list 2>/dev/null | grep -qE "^gsc[: ]"; then
+        # Already registered — assume it's fine. (claude mcp list doesn't expose env vars
+        # so we can't verify the path matches; users with a stale registration can fix
+        # it with `claude mcp remove gsc` and re-running this script.)
         return 0
     fi
 
@@ -136,7 +139,7 @@ ensure_gsc_mcp() {
         -e GSC_CREDENTIALS_PATH="$gsc_path" \
         -e GSC_SKIP_OAUTH=true \
         -- "$uvx_path" mcp-search-console > /dev/null 2>&1; then
-        echo -e "  ${GREEN}✓${NC} GSC MCP registered"
+        echo -e "  ${GREEN}✓${NC} GSC MCP registered (credentials: ./credentials.json)"
         echo -e "  ${DIM}    Restart Claude Code if you don't see the gsc:* tools yet.${NC}"
         echo ""
     else
