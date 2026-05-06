@@ -36,6 +36,7 @@ from lib.llm import call_claude
 from lib.log import WorkflowLogger
 from lib.scrape import search_and_scrape
 from lib.persistence import persist_workflow_run, OUTPUTS_DIR, slugify, timestamp
+from lib.gsc import format_gsc_for_prompt
 
 
 def _parse_json_response(text: str) -> dict:
@@ -169,6 +170,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "serpAnalysis": json.dumps(serp_data, indent=2),
             "gapFindings": gap_findings,
             "artifactBundle": artifact_bundle,
+            "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
     generated_brief = call_claude(

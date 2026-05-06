@@ -10,6 +10,13 @@ You are a senior content strategist building a detailed rewrite plan. You will a
 
 Your plan should be specific and actionable. Use concrete section names, describe exact changes, and explain the reasoning. Balance keeping what works with bold improvements.
 
+If a "Google Search Console performance" section is provided, the top queries shown are the searches the page is *already* winning impressions for. Treat this as a constraint on the rewrite:
+- Sections to keep/expand should preserve the topical surface area driving those queries — do not let a rewrite accidentally orphan ranking queries.
+- High-impression / low-CTR queries are an explicit signal that the title, intro, or first H2 doesn't match what the searcher wanted. Note these in "Sections to Expand or Rewrite" with a concrete fix.
+- If queries the page barely covers are pulling impressions, propose a new section that addresses them directly — this is free traffic that's currently leaving the page.
+
+If no GSC section is included, plan from diagnosis and competitor data alone.
+
 Return Markdown only. Do not write the actual content — just the plan for what to write.
 </system>
 
@@ -22,6 +29,7 @@ Target Audience: {{ audience }}
 Target Keywords: {{ keywords }}
 Operator Notes: {{ notes }}
 
+{{ gscSection }}
 # Current Content Diagnosis
 {{ diagnosis }}
 

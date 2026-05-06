@@ -6,6 +6,7 @@ Generate optimized title tags, meta descriptions, heading structures, and on-pag
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
 2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
+3. **Fetch GSC top queries for the URL.** See `skills/_shared/fetch-gsc.md`. For metadata work, pull the **last 90 days** of top queries by *impressions* for the URL, plus their CTRs. These are the highest-leverage signals for title/meta optimization: high-impression / low-CTR queries point directly at messaging mismatches the new title and description should fix.
 
 ## What to Ask the User
 
@@ -21,14 +22,25 @@ See `skills/_shared/call-workflow.md` for the async pattern.
 **Kick off:**
 
 ```bash
+# Sort top queries by impressions (not clicks) — those are the unfulfilled-demand signal.
+GSC_JSON=$(jq -n '{
+  property_url: "https://www.yournavi.com/",
+  date_range: "last 90 days",
+  page_url: "<page URL>",
+  top_queries: [ /* 20–30 rows for the URL, sorted by impressions desc */ ],
+  notes: "<flag specific high-impression / low-CTR queries — these are the title/meta opportunities>"
+}')
+
 curl -sS -X POST http://localhost:8100/api/metadata_suggestions \
   -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<short label>",
-    "url": "<page URL>",
-    "keywords": ["<optional>"]
-  }'
+  -d "$(jq -n \
+        --arg topic "<short label>" \
+        --arg url "<page URL>" \
+        --argjson gsc "$GSC_JSON" \
+        '{topic: $topic, url: $url, gsc: $gsc}')"
 ```
+
+If GSC isn't available, omit `gsc` — the workflow falls back to SERP scrape data only.
 
 Expected runtime: **1–2 minutes** (faster than other workflows — uses search metadata only, not full competitor page scraping). Poll every 15s.
 

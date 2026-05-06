@@ -42,6 +42,7 @@ On the first run this triggers first-time setup (Python check, dependency instal
 - `py/lib/` — Shared helpers (LLM calls, scraping, persistence, validation).
 - `skills/` — Skill files that teach Claude how to use each workflow.
   - `skills/_shared/fetch-artifacts.md` — verify the local `artifacts/` folder before each workflow run (Drive sync disabled).
+  - `skills/_shared/fetch-gsc.md` — the Google Search Console MCP fetch pattern (page metrics, top queries, trends) for workflows that benefit from real performance data.
   - `skills/_shared/call-workflow.md` — the async POST → poll pattern every workflow uses.
 
 ## How to Run Workflows
@@ -92,16 +93,20 @@ See `skills/_shared/call-workflow.md` for the full pattern.
   "keywords": ["optional", "keyword", "hints"],
   "audience": "optional - target audience",
   "notes": "optional - extra context",
+  "gsc": "optional - structured Google Search Console data (see py/lib/gsc.py)",
   "sitemap_url": "optional (internal_link_recommendations only)",
   "write_article": "optional bool (net_new_content_brief only)"
 }
 ```
+
+The `gsc` field is a structured object with fields like `property_url`, `date_range`, `page_totals`, `comparison`, `top_queries`, `top_pages`, and `notes`. Skills are responsible for fetching the right slice from the GSC MCP and populating it. See `skills/_shared/fetch-gsc.md` for the per-workflow guidance and `py/lib/gsc.py` for the exact shape. When omitted, workflows run unchanged — GSC is purely additive.
 
 ## Operating Rules
 
 - Always use the workflow server instead of freeform prompting for content tasks.
 - Read the relevant skill file in `skills/` before running a workflow.
 - Verify `artifacts/` has the six expected files before every workflow run. Do not call the Google Drive MCP — Drive sync is disabled.
+- For workflows whose `SKILL.md` lists GSC as a prerequisite, query the GSC MCP first and populate the workflow's `gsc` input field. See `skills/_shared/fetch-gsc.md`.
 - **Never commit anything under `artifacts/`, `outputs/`, or `tracking/`.** The repo is public; artifacts and outputs are confidential.
 - Write deliverables to the filesystem, not just chat output.
 - Do not add API keys or proprietary data to tracked files.
@@ -133,3 +138,9 @@ Firecrawl can't scrape some sites (Reddit, CNET). Expected. The workflow analyze
 
 **Workflow output looks generic / off-brand**
 `artifacts/` was probably empty or incomplete at the time of the run. Ask the user to confirm the six artifact files are present, then run again.
+
+**GSC tools aren't visible in Claude Code**
+`start.sh` registers the `gsc` MCP server with `claude mcp add` on first run. If the tools don't appear: (1) confirm `bash start.sh` has been run this session, (2) restart Claude Code so it picks up the registration, (3) check `.env` has `GSC_CREDENTIALS_PATH` pointing to a real service account JSON, (4) run `claude mcp list` to confirm `gsc` is registered.
+
+**GSC returns no data for a URL**
+The service account email must have access to the Navi GSC property. Verify in Search Console → Settings → Users and permissions. Also confirm you queried the right property URL — Navi's is `https://www.yournavi.com/` (URL-prefix, **with** the `www.`). Calls to `https://yournavi.com/` will return empty data.

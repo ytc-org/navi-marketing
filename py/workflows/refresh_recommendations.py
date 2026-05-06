@@ -35,6 +35,7 @@ from lib.llm import call_claude
 from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search_and_scrape
 from lib.persistence import persist_workflow_run
+from lib.gsc import format_gsc_for_prompt
 
 
 def _parse_json_response(text: str) -> dict:
@@ -220,6 +221,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "freshnessAudit": json.dumps(freshness_data, indent=2),
             "competitiveAnalysis": competitive_analysis,
             "brandEvaluation": brand_evaluation,
+            "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
     final_recommendations = call_claude(

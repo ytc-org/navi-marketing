@@ -14,6 +14,11 @@ The wrong approach: ignoring competitors and writing something entirely novel.
 The wrong approach: copying competitor title structures so closely that there's no reason to click yours.
 The right approach: relevance-first, differentiation-second.
 
+If a "Google Search Console performance" section is provided, the top queries are the page's *actual* search demand — far more reliable than guessed keywords. Use them like this:
+- Pick the highest-impression query as a primary signal for what your title and description must address. The page is being seen for it; the click is being lost.
+- For high-impression / low-CTR queries (under ~2% CTR), the current title/description has failed those searchers. Your new options should explicitly speak to what those queries imply.
+- Note in each option's `rationale` which observed queries the title/description targets.
+
 Titles should be 50-60 characters. Descriptions should be 150-160 characters. Each option should feel distinct and emphasize different angles (benefit-driven, keyword-forward, brand-focused, etc.).
 
 Return valid JSON only. No markdown, no commentary.
@@ -26,6 +31,7 @@ Generate optimized metadata options for this page based on the analysis.
 URL: {{ url }}
 Target keywords: {{ keywords }}
 
+{{ gscSection }}
 # Current metadata
 {{ currentMetadata }}
 
