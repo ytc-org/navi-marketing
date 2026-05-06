@@ -32,6 +32,7 @@ from lib.llm import call_claude
 from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search
 from lib.persistence import persist_workflow_run
+from lib.gsc import format_gsc_for_prompt
 
 
 def _parse_json_response(text: str) -> dict:
@@ -167,6 +168,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "currentMetadata": json.dumps(current_metadata, indent=2),
             "keywordAnalysis": json.dumps(keyword_analysis, indent=2),
             "serpData": serp_content,
+            "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
     gen_response = call_claude(

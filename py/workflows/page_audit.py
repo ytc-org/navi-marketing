@@ -36,6 +36,7 @@ from lib.llm import call_claude
 from lib.log import WorkflowLogger
 from lib.scrape import scrape_page, search_and_scrape
 from lib.persistence import persist_workflow_run
+from lib.gsc import format_gsc_for_prompt
 
 
 def _parse_json_response(text: str) -> dict:
@@ -232,6 +233,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "evaluationFindings": evaluation_findings,
             "gapAnalysis": gap_analysis,
             "structuralAnalysis": structural_analysis,
+            "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
     final_report = call_claude(

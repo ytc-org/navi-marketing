@@ -6,6 +6,7 @@ Audit a page against brand artifacts, real SERP competitor data, and content str
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
 2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Confirm `artifacts/` has the six expected files before calling the workflow. Drive sync is disabled — do not fetch from Google Drive.
+3. **Fetch GSC data for the URL.** See `skills/_shared/fetch-gsc.md`. For page audits, pull the **last 28 days**: page-level totals (clicks, impressions, CTR, position) plus the top 15–25 queries for the specific URL. The workflow will use this to spot title/CTR mismatches, ranking decay, and queries the page should rank for but doesn't. Skip if the URL isn't on `yournavi.com` (e.g., auditing a draft via `source_path`).
 
 ## What to Ask the User
 
@@ -24,15 +25,27 @@ See `skills/_shared/call-workflow.md` for the full async pattern (POST → poll 
 **Kick off:**
 
 ```bash
+# Build the structured GSC object first (see skills/_shared/fetch-gsc.md)
+GSC_JSON=$(jq -n '{
+  property_url: "https://www.yournavi.com/",
+  date_range: "last 28 days",
+  page_url: "<page URL>",
+  page_totals: { clicks: 245, impressions: 8420, ctr: 0.029, position: 12.4 },
+  top_queries: [ /* 15–25 rows from mcp__gsc__get_search_analytics, dimensions=query, filtered to the URL */ ],
+  notes: "<flag any high-impression / low-CTR queries here>"
+}')
+
 curl -sS -X POST http://localhost:8100/api/page_audit \
   -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<short label>",
-    "url": "<page URL>",
-    "keywords": ["<optional>", "<keywords>"],
-    "notes": "<optional context>"
-  }'
+  -d "$(jq -n \
+        --arg topic "<short label>" \
+        --arg url "<page URL>" \
+        --arg notes "<user notes>" \
+        --argjson gsc "$GSC_JSON" \
+        '{topic: $topic, url: $url, notes: $notes, gsc: $gsc}')"
 ```
+
+If GSC isn't available, omit the `gsc` field — the workflow degrades silently.
 
 Expected runtime: **2–5 minutes.** Poll every 20–30s.
 

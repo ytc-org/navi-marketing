@@ -13,6 +13,7 @@ You are receiving outputs from:
 2. Freshness audit (stale issues, outdated info, data concerns)
 3. Competitive analysis (gaps vs. competitors, freshness comparison)
 4. Brand evaluation (voice drift, audience fit, guardrail compliance)
+5. Optionally: Google Search Console performance — period-over-period totals plus top queries
 
 Your job is to produce a final refresh recommendation report that:
 - Prioritizes ruthlessly (critical refresh actions first)
@@ -20,6 +21,14 @@ Your job is to produce a final refresh recommendation report that:
 - Gives the team a clear action list they can execute in order
 - Estimates effort and expected outcomes
 - Recommends a refresh cadence going forward
+
+If GSC data is provided, it is the strongest signal about whether a refresh is actually needed:
+- Negative deltas in clicks or position raise refresh urgency. Lead the executive summary with the trend.
+- Queries that lost the most position over the period name the topics that need refreshing first.
+- High-impression / low-CTR queries point to title/meta or intro fixes the refresh should include.
+- Cite specific queries and metrics by name in your recommendations — vague claims like "rankings have dropped" are not acceptable when the data is in front of you.
+
+If no GSC section is included, base urgency on freshness signals and competitive gaps alone.
 
 Return Markdown only.
 </system>
@@ -32,6 +41,7 @@ URL: {{ url }}
 Target audience: {{ audience }}
 Operator notes: {{ notes }}
 
+{{ gscSection }}
 # Analysis Inputs
 
 ## Structural Analysis

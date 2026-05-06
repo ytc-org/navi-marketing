@@ -20,6 +20,12 @@ Structure your response as a Markdown content brief that includes:
 - Internal linking opportunities
 - Call-to-action strategy
 
+If a "Google Search Console performance" section is provided, those are queries (and possibly top pages) from the brand's existing site that match this topic. Use them to:
+- Validate (or challenge) the keyword targets — if the brand already shows up for related queries, name the exact ones in the keyword strategy.
+- Identify queries the brand earns impressions for but lacks a dedicated page on — those are the strongest argument for this new piece existing.
+- Inform the differentiation angle: what is the searcher actually asking that competitors don't fully answer?
+- Inform the internal linking section: if top pages are listed, those are high-traffic candidates the new article should link to (or be linked from).
+
 Use the brand context below to ensure the brief aligns with the brand's voice, audience, products, and guardrails.
 
 ## Brand Context
@@ -36,6 +42,7 @@ Create a comprehensive content brief for a new article/page based on competitive
 # Target Audience: {{ audience }}
 # Additional Context: {{ notes }}
 
+{{ gscSection }}
 ## Competitive Landscape
 {{ serpAnalysis }}
 

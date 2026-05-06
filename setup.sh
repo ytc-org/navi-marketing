@@ -160,6 +160,15 @@ if [ -f ".env" ]; then
         warn ".env file exists but Anthropic key may not be set"
         info "Open .env and make sure ANTHROPIC_API_KEY has your key"
     fi
+    # Add GSC keys if missing (for users upgrading an older .env)
+    if ! grep -q "^GSC_CREDENTIALS_PATH=" .env 2>/dev/null; then
+        echo "" >> .env
+        echo "# Google Search Console (service account auth)" >> .env
+        echo "# Add the absolute path to your GSC service account JSON below." >> .env
+        echo "GSC_CREDENTIALS_PATH=" >> .env
+        echo "GSC_PROPERTY_URL=https://www.yournavi.com/" >> .env
+        info "Added empty GSC_CREDENTIALS_PATH to .env — fill it in to enable GSC data in workflows."
+    fi
     echo ""
 else
     echo -e "  ${DIM}You'll need three API keys. Don't worry, I'll walk you through it.${NC}"
@@ -190,6 +199,23 @@ else
     read -p "  Paste your OpenAI API key (or press Enter to skip for now): " OPENAI_KEY
     echo ""
 
+    # GSC service account JSON path
+    echo -e "  ${BOLD}Google Search Console Service Account${NC} (recommended — powers GSC data lookups in workflows)"
+    echo -e "  ${DIM}Ask whoever set up Navi's GSC integration for the service account JSON file.${NC}"
+    echo -e "  ${DIM}Save it somewhere safe on your Mac, then paste the absolute path here.${NC}"
+    echo -e "  ${DIM}Example: /Users/yourname/Documents/navi-gsc-service-account.json${NC}"
+    echo -e "  ${DIM}Skip if you don't have it yet — workflows will run without GSC data.${NC}"
+    echo ""
+    read -p "  Paste the absolute path to your GSC service account JSON (or press Enter to skip): " GSC_PATH
+    echo ""
+
+    # Validate the path if provided
+    if [ -n "$GSC_PATH" ] && [ ! -f "$GSC_PATH" ]; then
+        warn "File not found at: $GSC_PATH"
+        info "Saving anyway — fix the path in .env later if needed."
+        echo ""
+    fi
+
     # Write .env
     cat > .env << EOF
 # Content Ops Workflow API Keys
@@ -199,6 +225,11 @@ else
 ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
 FIRECRAWL_API_KEY=${FIRECRAWL_KEY}
 OPENAI_API_KEY=${OPENAI_KEY}
+
+# Google Search Console (service account auth)
+# Path to the service account JSON. The MCP server reads it via GSC_CREDENTIALS_PATH.
+GSC_CREDENTIALS_PATH=${GSC_PATH}
+GSC_PROPERTY_URL=https://www.yournavi.com/
 EOF
 
     if [ -n "$ANTHROPIC_KEY" ]; then

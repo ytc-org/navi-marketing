@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from lib.gsc import GSCData
+
 
 DEFAULT_TRACKING_PATH = "tracking/runs.md"
 
@@ -17,6 +19,7 @@ class WorkflowInput(BaseModel):
     notes: str | None = Field(None, description="Extra operator notes or context")
     keywords: list[str] = Field(default_factory=list, description="Optional keyword or topic hints")
     audience: str | None = Field(None, description="Optional audience focus for this run")
+    gsc: GSCData | None = Field(None, description="Optional Google Search Console data for this run. Skills populate this from the GSC MCP before calling the workflow. See py/lib/gsc.py for the shape and skills/_shared/fetch-gsc.md for guidance on what to fetch per workflow.")
     tracking_path: str = Field(DEFAULT_TRACKING_PATH, description="Markdown file to append a run log entry to")
     record_path: str | None = Field(None, description="Optional page/topic record file to append a run note to")
     output_slug: str | None = Field(None, description="Optional stable slug for output filenames")

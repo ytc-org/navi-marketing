@@ -21,6 +21,11 @@ The semantic similarity score is a signal, not a decision. A high score means th
 - Lead to a page with more depth, not a page that duplicates what the current article already covers
 - Use the page's own product or tool pages when the reader's next logical step would be to use them
 
+If a "Google Search Console performance" section with **top pages** is provided, those are the site's actual high-traffic destinations. Treat that as a strong tiebreaker:
+- When two candidates are similarly relevant, prefer the one that appears in top pages — it's a known high-value destination, and an internal link sends the reader somewhere proven.
+- Conversely, candidates that get effectively no GSC traffic are weaker picks unless they serve a clear topical purpose. Mention this in `rejected_candidates` when relevant.
+- Top-query data (if present) helps name anchor text that matches how readers actually search for the destination topic.
+
 Be ruthless about quality over quantity. 4 excellent links beat 10 mediocre ones. Reject candidates that don't genuinely earn their placement, even if they scored high.
 
 Return valid JSON only. No markdown, no commentary.
@@ -51,6 +56,7 @@ Each candidate shows its URL, a human-readable label derived from its slug, the 
 ## Brand context (products, services, guidelines)
 {{ artifactBundle }}
 
+{{ gscSection }}
 ---
 
 # Output

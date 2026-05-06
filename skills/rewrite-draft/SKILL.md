@@ -6,6 +6,7 @@ Takes an existing page and produces a complete rewritten draft aligned with bran
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
 2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
+3. **Fetch GSC top queries for the URL.** See `skills/_shared/fetch-gsc.md`. For rewrites, pull the **last 90 days** of top queries for the specific URL — these are the searches the page is already winning impressions for, and the rewrite should preserve (or expand) that surface area, not accidentally drift away from it. Skip if the URL isn't on `yournavi.com` or the user is rewriting a local draft via `source_path`.
 
 ## What to Ask the User
 
@@ -21,14 +22,26 @@ See `skills/_shared/call-workflow.md` for the async pattern.
 **Kick off:**
 
 ```bash
+# GSC top queries are the rewrite's "preserve list" — what the page is already winning.
+GSC_JSON=$(jq -n '{
+  property_url: "https://www.yournavi.com/",
+  date_range: "last 90 days",
+  page_url: "<page URL>",
+  top_queries: [ /* 20–30 rows from mcp__gsc__get_search_analytics, dimensions=query, filtered to the URL */ ],
+  notes: "<note any high-impression / low-CTR queries the rewrite should better address>"
+}')
+
 curl -sS -X POST http://localhost:8100/api/rewrite_draft \
   -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<short label>",
-    "url": "<page URL>",
-    "notes": "<optional direction>"
-  }'
+  -d "$(jq -n \
+        --arg topic "<short label>" \
+        --arg url "<page URL>" \
+        --arg notes "<user direction>" \
+        --argjson gsc "$GSC_JSON" \
+        '{topic: $topic, url: $url, notes: $notes, gsc: $gsc}')"
 ```
+
+Skip `gsc` when rewriting a draft via `source_path` (no GSC data exists for an unpublished page).
 
 Expected runtime: **3–5 minutes** (longer than other workflows because it writes a full draft). Poll every 20–30s.
 

@@ -43,6 +43,7 @@ from lib.scrape import scrape_page
 from lib.persistence import persist_workflow_run, OUTPUTS_DIR, slugify, timestamp
 from lib.sitemap import parse_sitemap, default_sitemap_url
 from lib.embeddings import rank_urls_by_similarity
+from lib.gsc import format_gsc_for_prompt
 
 
 def _parse_json_response(text: str) -> dict:
@@ -184,6 +185,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "keyTopics": json.dumps(topics_data, indent=2),
             "rankedCandidates": ranked_text,
             "artifactBundle": artifact_bundle,
+            "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
     plan_response = call_claude(

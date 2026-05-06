@@ -7,6 +7,7 @@ Analyze a page, semantically rank links from the brand's own sitemap, have Opus 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
 2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
 3. **OpenAI key required.** This workflow uses `OPENAI_API_KEY` for embeddings. If missing, the workflow will fail with a clear error pointing to setup.
+4. **Fetch GSC top pages (recommended).** See `skills/_shared/fetch-gsc.md`. Pull the **last 90 days** of top pages site-wide (no URL filter). Opus uses this as a tiebreaker between similarly-relevant link candidates: when in doubt, link to a page that's a known high-traffic destination. If the source page has GSC data, also fetch its top queries to inform anchor-text choices.
 
 ## What to Ask the User
 
@@ -21,15 +22,27 @@ See `skills/_shared/call-workflow.md` for the async pattern.
 **Kick off:**
 
 ```bash
+# Top pages (site-wide) tiebreak link selection toward proven destinations.
+# Optionally include top_queries for the source URL to inform anchor text.
+GSC_JSON=$(jq -n '{
+  property_url: "https://www.yournavi.com/",
+  date_range: "last 90 days",
+  page_url: "<source page URL>",
+  top_queries: [ /* optional: top queries for the source page, for anchor-text inspiration */ ],
+  top_pages:   [ /* 20–40 site-wide top pages from mcp__gsc__get_search_analytics, dimensions=page */ ]
+}')
+
 curl -sS -X POST http://localhost:8100/api/internal_link_recommendations \
   -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<short label>",
-    "url": "<page URL>"
-  }'
+  -d "$(jq -n \
+        --arg topic "<short label>" \
+        --arg url "<page URL>" \
+        --argjson gsc "$GSC_JSON" \
+        '{topic: $topic, url: $url, gsc: $gsc}')"
 ```
 
-If the user has a custom sitemap URL, include `"sitemap_url": "..."` in the body.
+If the user has a custom sitemap URL, add `sitemap_url` to the body.
+If GSC isn't available, omit `gsc` — link selection falls back to embedding similarity alone.
 
 Expected runtime: **3–5 minutes.** Poll every 20–30s.
 

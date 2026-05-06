@@ -6,6 +6,7 @@ Create a comprehensive content brief for a brand-new article or page, grounded i
 
 1. **Server running.** See `skills/_shared/call-workflow.md` — Step 0 covers how to check the server and start it if needed.
 2. **Verify local artifacts.** See `skills/_shared/fetch-artifacts.md`. Drive sync is disabled — just confirm the six files are present in `artifacts/`.
+3. **Fetch site-wide GSC queries that match the topic.** See `skills/_shared/fetch-gsc.md`. There's no URL yet, so don't filter to a page — instead, pull the **last 90 days** of site-wide queries containing the topic terms or target keywords. This shows what users *already* search for on the site adjacent to this topic, including queries Navi shows up for but doesn't have a dedicated page for (the strongest argument for net-new content). Skip if there's no obvious topical overlap with `yournavi.com`.
 
 ## What to Ask the User
 
@@ -24,27 +25,29 @@ See `skills/_shared/call-workflow.md` for the async pattern.
 **Brief only:**
 
 ```bash
+# Site-wide queries matching the topic — no page_url filter, since the page doesn't exist yet.
+# Optionally include top_pages on adjacent topics to seed internal-link suggestions.
+GSC_JSON=$(jq -n '{
+  property_url: "https://www.yournavi.com/",
+  date_range: "last 90 days",
+  top_queries: [ /* site-wide queries containing the topic terms — argues for the page existing */ ],
+  top_pages:   [ /* top adjacent pages — informs internal-link section of the brief */ ],
+  notes: "<which adjacent queries the brand earns impressions for but lacks a dedicated page on>"
+}')
+
 curl -sS -X POST http://localhost:8100/api/net_new_content_brief \
   -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<working title or keyword cluster>",
-    "keywords": ["<target>", "<keywords>"],
-    "audience": "<optional>",
-    "notes": "<optional angle / goals>"
-  }'
+  -d "$(jq -n \
+        --arg topic "<working title or keyword cluster>" \
+        --arg notes "<user angle / goals>" \
+        --argjson keywords '["<target>","<keywords>"]' \
+        --argjson gsc "$GSC_JSON" \
+        '{topic: $topic, keywords: $keywords, notes: $notes, gsc: $gsc}')"
 ```
 
-**Brief + drafted article:**
+**Brief + drafted article:** add `write_article: true` to the JSON body above.
 
-```bash
-curl -sS -X POST http://localhost:8100/api/net_new_content_brief \
-  -H "Content-Type: application/json" \
-  -d '{
-    "topic": "<working title or keyword cluster>",
-    "keywords": ["<target>", "<keywords>"],
-    "write_article": true
-  }'
-```
+If there's no obvious topical overlap with `yournavi.com`, omit `gsc`.
 
 Expected runtime: **2–4 minutes** for brief alone; **5–8 minutes** with `write_article`. Poll every 20–30s.
 
