@@ -56,7 +56,7 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the refresh recommendations workflow. Called by the server or standalone."""
 
-    log = WorkflowLogger("refresh_recommendations", total_steps=8)
+    log = WorkflowLogger("refresh_recommendations", total_steps=9)
     log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
@@ -158,7 +158,36 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     else:
         competitor_content = "No competitor content was retrieved. Provide analysis based on general knowledge of the topic."
 
-    # --- Step 5: Competitive freshness comparison ---
+    # --- Step 5: Condense competitor research into a compact digest ---
+    # The raw scrapes are large. A cheap Haiku pass condenses them into a
+    # factual digest so the Sonnet freshness comparison sends far fewer tokens.
+    log.step("Condensing competitor research")
+    if all_competitors:
+        digest_prompt = load_prompt("competitor_digest")
+        digest_rendered = render_prompt(
+            digest_prompt,
+            {
+                "topic": workflow_input.topic,
+                "keywords": ", ".join(search_keywords) if search_keywords else "None provided",
+                "competitorContent": competitor_content,
+            },
+        )
+        competitor_digest = call_claude(
+            system=digest_rendered.system,
+            user=digest_rendered.user,
+            model=digest_rendered.config.model,
+            temperature=digest_rendered.config.temperature,
+            max_tokens=digest_rendered.config.max_tokens,
+        )
+        log.detail(
+            f"Condensed competitor research: {len(competitor_content):,} -> "
+            f"{len(competitor_digest):,} chars"
+        )
+    else:
+        competitor_digest = competitor_content
+    log.step_done()
+
+    # --- Step 6: Competitive freshness comparison ---
     log.step("Running competitive freshness comparison")
     competitive_prompt = load_prompt("refresh_competitive")
     competitive_rendered = render_prompt(
@@ -169,7 +198,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "sourceContent": source_content,
             "structuralAnalysis": json.dumps(structural_data, indent=2),
             "freshnessAudit": json.dumps(freshness_data, indent=2),
-            "competitorContent": competitor_content,
+            "competitorContent": competitor_digest,
         },
     )
     competitive_analysis = call_claude(
@@ -181,7 +210,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Competitive freshness comparison complete")
 
-    # --- Step 6: Brand alignment check ---
+    # --- Step 7: Brand alignment check ---
     log.step("Evaluating brand alignment")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
@@ -207,7 +236,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Brand alignment check complete")
 
-    # --- Step 7: Synthesize recommendations ---
+    # --- Step 8: Synthesize recommendations ---
     log.step("Synthesizing refresh recommendations")
     synth_prompt = load_prompt("refresh_synthesize")
     synth_rendered = render_prompt(
@@ -233,7 +262,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Synthesis complete")
 
-    # --- Step 8: Persist ---
+    # --- Step 9: Persist ---
     log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="refresh_recommendations",

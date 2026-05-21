@@ -144,3 +144,9 @@ Firecrawl can't scrape some sites (Reddit, CNET). Expected. The workflow analyze
 
 **GSC returns no data for a URL**
 The service account email must have access to the Navi GSC property. Verify in Search Console → Settings → Users and permissions. Also confirm you queried the right property URL — Navi's is `https://www.yournavi.com/` (URL-prefix, **with** the `www.`). Calls to `https://yournavi.com/` will return empty data.
+
+**Server logs show `[throttle] slept Xs ...` between calls**
+Expected. The LLM client in `py/lib/llm.py` enforces a per-model sliding-window rate-limit budget (`py/lib/token_budget.py`) so workflows don't trip Anthropic 429s. Anthropic limits each model class (Opus / Sonnet / Haiku) **independently**, and input (ITPM) and output (OTPM) tokens are **separate buckets** — there is no combined cap. Defaults are Anthropic's Tier 1 limits: Opus 500k ITPM / 80k OTPM, Sonnet 30k / 8k, Haiku 50k / 10k (all 50 RPM). When a call wouldn't fit a model's remaining window it sleeps until budget frees up; a workflow may take several minutes wall-clock. Sonnet is the tightest model and the usual reason for a wait. If the org's account is above Tier 1, set `ANTHROPIC_RATE_LIMIT_TIER` (`1`–`4`) in `.env`. The per-call `[tokens] <class> in=… out=… (window …)` line shows actual usage and remaining budget for that model.
+
+**Workflow fails immediately with `TokenBudgetExceededError`**
+A single call's estimated input exceeds that model's effective ITPM, or its `max_tokens` (× output ratio) exceeds the model's effective OTPM — throttling can't help because even one call doesn't fit. The error names the model class and offending size. Fixes: reduce input (smaller artifacts, fewer/shorter competitor scrapes, shorter source page), lower the prompt's `maxTokens`, move the call to a model with a higher limit (Opus has by far the most headroom), or raise `ANTHROPIC_RATE_LIMIT_TIER` if the account is genuinely above Tier 1.

@@ -183,7 +183,11 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     # --- Step 6: Synthesize final recommendations ---
     log.step("Synthesizing recommendations")
     artifacts = load_artifacts()
-    artifact_bundle = build_artifact_bundle(artifacts)
+    # metadata_synthesize only does a voice/claims check on title + description.
+    artifact_bundle = build_artifact_bundle(
+        artifacts,
+        include=["writing-style", "brand-guardrails"],
+    )
 
     synth_prompt = load_prompt("metadata_synthesize")
     synth_rendered = render_prompt(

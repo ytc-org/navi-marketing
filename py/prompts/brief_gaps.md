@@ -30,10 +30,10 @@ Based on the competitive SERP analysis, identify content gaps and opportunities 
 # Operator Notes: {{ notes }}
 
 ## Competitor Analysis (from SERP research)
-{{ serpAnalysis }}
+This is a structured analysis of the top-ranking competitor pages — their heading
+structures, required topics, content formats, depth levels, and observed gaps.
 
-## Competitor Content Summary
-{{ competitorContent }}
+{{ serpAnalysis }}
 
 ---
 

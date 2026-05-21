@@ -34,20 +34,36 @@ def load_artifacts(artifact_dir: Path | None = None) -> dict[str, str]:
     return artifacts
 
 
-def build_artifact_bundle(artifacts: dict[str, str]) -> str:
-    """Format all artifacts into a single Markdown string for prompt injection.
+# Artifacts that carry no brand context the model needs in a prompt
+# (workflow-context is operating instructions for the ops system itself).
+_DEFAULT_EXCLUDED = {"workflow-context"}
 
-    Known artifacts appear first in a stable order, followed by any extras.
+# Default selection: every known artifact except the operating-context file.
+DEFAULT_ARTIFACTS = [n for n in KNOWN_ARTIFACTS if n not in _DEFAULT_EXCLUDED]
+
+
+def build_artifact_bundle(
+    artifacts: dict[str, str],
+    include: list[str] | None = None,
+) -> str:
+    """Format selected artifacts into a single Markdown string for prompt injection.
+
+    `include` is an allowlist of artifact stems (e.g. ["writing-style",
+    "brand-guardrails"]) — pass only what a given prompt actually needs to keep
+    token usage down. When omitted, defaults to every known artifact except
+    `workflow-context`.
+
+    Only known artifacts are emitted, in their canonical order; stray files in
+    artifacts/ (e.g. README.md) are never bundled.
     """
-    sections: list[str] = []
+    selected = set(include) if include is not None else set(DEFAULT_ARTIFACTS)
 
+    sections: list[str] = []
     for name in KNOWN_ARTIFACTS:
+        if name not in selected:
+            continue
         content = artifacts.get(name)
         if content:
-            sections.append(f"## {_heading(name)}\n{content.strip()}")
-
-    for name, content in artifacts.items():
-        if name not in KNOWN_ARTIFACTS and content:
             sections.append(f"## {_heading(name)}\n{content.strip()}")
 
     return "\n\n".join(sections) if sections else "No artifact files were found in artifacts/."
