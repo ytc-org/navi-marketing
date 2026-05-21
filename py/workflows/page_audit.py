@@ -57,7 +57,7 @@ def _parse_json_response(text: str) -> dict:
 def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     """Execute the page audit workflow. Called by the server or standalone."""
 
-    log = WorkflowLogger("page_audit", total_steps=8)
+    log = WorkflowLogger("page_audit", total_steps=9)
     log.start(workflow_input.topic)
 
     # --- Step 1: Get source content ---
@@ -167,7 +167,36 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     else:
         competitor_content = "No competitor content was retrieved. Provide analysis based on general SEO knowledge."
 
-    # --- Step 5: Brand evaluation ---
+    # --- Step 5: Condense competitor research into a compact digest ---
+    # The raw scrapes are large (~30k tokens). A cheap Haiku pass condenses them
+    # into a factual digest so the downstream gap analysis sends far fewer tokens.
+    log.step("Condensing competitor research")
+    if all_competitors:
+        digest_prompt = load_prompt("competitor_digest")
+        digest_rendered = render_prompt(
+            digest_prompt,
+            {
+                "topic": workflow_input.topic,
+                "keywords": ", ".join(primary_keywords) if primary_keywords else "None provided",
+                "competitorContent": competitor_content,
+            },
+        )
+        competitor_digest = call_claude(
+            system=digest_rendered.system,
+            user=digest_rendered.user,
+            model=digest_rendered.config.model,
+            temperature=digest_rendered.config.temperature,
+            max_tokens=digest_rendered.config.max_tokens,
+        )
+        log.detail(
+            f"Condensed competitor research: {len(competitor_content):,} -> "
+            f"{len(competitor_digest):,} chars"
+        )
+    else:
+        competitor_digest = competitor_content
+    log.step_done()
+
+    # --- Step 6: Brand evaluation ---
     log.step("Evaluating against brand artifacts")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
@@ -195,7 +224,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Brand evaluation complete")
 
-    # --- Step 6: Competitive gap analysis ---
+    # --- Step 7: Competitive gap analysis ---
     log.step("Running competitive gap analysis")
     gap_prompt = load_prompt("page_audit_gaps")
     gap_rendered = render_prompt(
@@ -207,7 +236,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "keywords": ", ".join(primary_keywords) if primary_keywords else "None provided",
             "sourceContent": source_content,
             "structuralAnalysis": structural_analysis,
-            "competitorContent": competitor_content,
+            "competitorContent": competitor_digest,
         },
     )
     gap_analysis = call_claude(
@@ -219,7 +248,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Gap analysis complete")
 
-    # --- Step 7: Synthesize final report ---
+    # --- Step 8: Synthesize final report ---
     log.step("Synthesizing audit report")
     synth_prompt = load_prompt("page_audit_synthesize")
     synth_rendered = render_prompt(
@@ -245,7 +274,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     )
     log.step_done("Synthesis complete")
 
-    # --- Step 8: Persist ---
+    # --- Step 9: Persist ---
     log.step("Saving output")
     output = persist_workflow_run(
         workflow_name="page_audit",

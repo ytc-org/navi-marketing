@@ -129,9 +129,21 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     serp_data = _parse_json_response(serp_analysis)
     log.step_done("SERP analysis complete")
 
-    # Load artifacts early — needed for gap analysis, brief generation, and brand review
+    # Load artifacts early — needed for gap analysis, brief generation, and brand review.
+    # Each prompt gets only the artifacts it needs to keep token usage down.
     artifacts = load_artifacts()
+    # brief_generate + brief_write_article need the full brand picture (default bundle).
     artifact_bundle = build_artifact_bundle(artifacts)
+    # brief_gaps: gap analysis — brand expertise, audience, positioning (no writing-style).
+    gaps_bundle = build_artifact_bundle(
+        artifacts,
+        include=["company-context", "audience-personas", "brand-guardrails", "products-and-services"],
+    )
+    # brief_brand_review: voice/audience/compliance review of the brief.
+    review_bundle = build_artifact_bundle(
+        artifacts,
+        include=["writing-style", "audience-personas", "brand-guardrails"],
+    )
 
     # --- Step 3: Gap identification ---
     log.step("Identifying content gaps")
@@ -143,8 +155,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "keywords": ", ".join(search_keywords),
             "audience": workflow_input.audience or "Not specified",
             "serpAnalysis": json.dumps(serp_data, indent=2),
-            "competitorContent": competitor_content,
-            "artifactBundle": artifact_bundle,
+            "artifactBundle": gaps_bundle,
         },
     )
     gap_findings = call_claude(
@@ -190,7 +201,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
         {
             "topic": workflow_input.topic,
             "brief": generated_brief,
-            "artifactBundle": artifact_bundle,
+            "artifactBundle": review_bundle,
         },
     )
     brand_review = call_claude(

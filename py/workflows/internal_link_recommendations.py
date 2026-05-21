@@ -173,7 +173,12 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     # --- Step 5: Opus selects links ---
     log.step("Opus selecting and placing links")
     artifacts = load_artifacts()
-    artifact_bundle = build_artifact_bundle(artifacts)
+    # internal_links_generate picks links — it needs product/service pages, the
+    # guardrails, and audience personas (link choices follow the reader's intent).
+    artifact_bundle = build_artifact_bundle(
+        artifacts,
+        include=["audience-personas", "brand-guardrails", "products-and-services"],
+    )
     gen_prompt = load_prompt("internal_links_generate")
     gen_rendered = render_prompt(
         gen_prompt,
@@ -201,15 +206,25 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     log.detail(f"Selected {len(selected)} links, rejected {len(rejected)} candidates")
     log.step_done()
 
-    # --- Step 6: Sonnet inserts links into the article ---
+    # --- Step 6: Opus inserts links into the article ---
     log.step("Inserting links into the article")
     if selected:
         insert_prompt = load_prompt("internal_links_insert")
+        # The insert prompt only uses these three fields. Drop the rest
+        # (rationale, placement_instruction, priority) to keep the input lean.
+        insert_plan = [
+            {
+                "target_url": link.get("target_url"),
+                "anchor_text": link.get("anchor_text"),
+                "source_sentence_excerpt": link.get("source_sentence_excerpt"),
+            }
+            for link in selected
+        ]
         insert_rendered = render_prompt(
             insert_prompt,
             {
                 "sourceContent": source_content,
-                "linkPlan": json.dumps(selected, indent=2),
+                "linkPlan": json.dumps(insert_plan, indent=2),
             },
         )
         linked_article = call_claude(

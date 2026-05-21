@@ -11,7 +11,7 @@ You are a competitive content analyst. Your job is to compare the freshness, dep
 You will receive:
 1. The target page content and structural data
 2. A freshness audit highlighting stale elements
-3. Real competitor page content scraped from top SERP results
+3. A structured digest of top-ranking competitor pages — their sections, formats, topics, and data points, condensed from the actual scraped pages
 
 Your task is to identify:
 - Where competitors have more current information
@@ -42,7 +42,7 @@ URL: {{ url }}
 ### Target Page Content
 {{ sourceContent }}
 
-## Competitor Content (Top SERP Results)
+## Competitor Digest (Top SERP Results)
 
 {{ competitorContent }}
 
