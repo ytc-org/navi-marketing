@@ -30,11 +30,16 @@ import sys
 from pathlib import Path
 
 from lib.validation import WorkflowInput, WorkflowOutput
-from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
+from lib.artifacts import (
+    load_artifacts,
+    build_artifact_bundle,
+    read_source_file,
+    recommendation_guardrails_block,
+)
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
 from lib.log import WorkflowLogger
-from lib.scrape import scrape_page, search_and_scrape
+from lib.scrape import scrape_page, scrape_page_full, search_and_scrape, ScrapedPage
 from lib.persistence import persist_workflow_run
 from lib.gsc import format_gsc_for_prompt
 
@@ -63,11 +68,29 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     # --- Step 1: Get source content ---
     log.step("Fetching page content")
     source_content = read_source_file(workflow_input.source_path)
+    # Head/metadata signals are only available when we scrape a live URL.
+    # For local source files there is no HTML head to inspect.
+    scraped: ScrapedPage | None = None
     if not source_content and workflow_input.url:
-        source_content = scrape_page(workflow_input.url)
+        scraped = scrape_page_full(workflow_input.url)
+        source_content = scraped.markdown
     if not source_content:
         raise ValueError("No source content available. Provide a URL or source_path.")
+    head_signals = (
+        scraped.head_signals_markdown()
+        if scraped is not None
+        else (
+            "Head/metadata signals: NOT AVAILABLE (audited from a local file, "
+            "not a live crawl). Do not infer that meta tags or schema are missing."
+        )
+    )
     log.detail(f"Got {len(source_content):,} chars of content")
+    if scraped is not None and scraped.head_inspected:
+        log.detail(
+            f"Head signals — meta desc: "
+            f"{'present' if scraped.meta_description else 'not detected'}, "
+            f"schema: {'present' if scraped.has_schema else 'not detected'}"
+        )
     log.step_done()
 
     # --- Step 2: Structural analysis ---
@@ -79,6 +102,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "topic": workflow_input.topic,
             "url": workflow_input.url or "Not provided",
             "sourceContent": source_content,
+            "headSignals": head_signals,
         },
     )
     structural_analysis = call_claude(
@@ -200,6 +224,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
     log.step("Evaluating against brand artifacts")
     artifacts = load_artifacts()
     artifact_bundle = build_artifact_bundle(artifacts)
+    recommendation_guardrails = recommendation_guardrails_block(artifacts)
 
     eval_prompt = load_prompt("page_audit_evaluate")
     eval_rendered = render_prompt(
@@ -211,7 +236,9 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "keywords": ", ".join(primary_keywords) if primary_keywords else "None provided",
             "notes": workflow_input.notes or "None provided",
             "structuralAnalysis": structural_analysis,
+            "headSignals": head_signals,
             "artifactBundle": artifact_bundle,
+            "recommendationGuardrails": recommendation_guardrails,
             "sourceContent": source_content,
         },
     )
@@ -262,6 +289,8 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "evaluationFindings": evaluation_findings,
             "gapAnalysis": gap_analysis,
             "structuralAnalysis": structural_analysis,
+            "headSignals": head_signals,
+            "recommendationGuardrails": recommendation_guardrails,
             "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )

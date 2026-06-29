@@ -17,6 +17,11 @@ Focus on:
 - External links that may be broken or point to deprecated pages
 - References to events, offers, or promotions that may have expired
 
+Guardrails (avoid false positives):
+- The page content is extracted Markdown — it omits the HTML head and interactive/JS-rendered widgets (coverage maps, pricing cards, comparison tables). Do not report a meta tag, schema, coverage map, or pricing card as missing based on its absence here.
+- **Single-line vs. multi-line pricing is not a discrepancy.** Navi's on-page pricing cards display single-line pricing; the body often cites multi-line pricing. Do not flag that difference as a pricing-currency concern.
+- Use the current date (stated at the top of this prompt) to judge staleness. Do not assume a year from your training data is "current." Without a plans-and-pricing reference you cannot confirm a specific price is outdated — frame such items as "verify against current pricing," not "this price is wrong."
+
 Return valid JSON only. No markdown, no commentary.
 </system>
 
