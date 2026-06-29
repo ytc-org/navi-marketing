@@ -16,6 +16,10 @@ KNOWN_ARTIFACTS = [
     "audience-personas",
     "brand-guardrails",
     "products-and-services",
+    # Optional, maintained-by-hand artifacts. Absent on most setups; when
+    # present they flow into the relevant prompts automatically.
+    "plans-and-pricing",
+    "recommendation-guardrails",
 ]
 
 
@@ -34,12 +38,29 @@ def load_artifacts(artifact_dir: Path | None = None) -> dict[str, str]:
     return artifacts
 
 
-# Artifacts that carry no brand context the model needs in a prompt
-# (workflow-context is operating instructions for the ops system itself).
-_DEFAULT_EXCLUDED = {"workflow-context"}
+# Artifacts that carry no brand context the model needs in a prompt.
+#   - workflow-context: operating instructions for the ops system itself.
+#   - recommendation-guardrails: a suppression list injected separately into
+#     evaluation/synthesis prompts (not part of the brand context bundle).
+_DEFAULT_EXCLUDED = {"workflow-context", "recommendation-guardrails"}
 
-# Default selection: every known artifact except the operating-context file.
+# Default selection: every known artifact except the excluded ones above.
 DEFAULT_ARTIFACTS = [n for n in KNOWN_ARTIFACTS if n not in _DEFAULT_EXCLUDED]
+
+
+def recommendation_guardrails_block(artifacts: dict[str, str]) -> str:
+    """Return the team's recommendation-suppression list as a prompt block.
+
+    This is the "stop telling me X" feedback loop: when a kind of finding keeps
+    being unhelpful, the team (or Claude, on request) appends a rule to
+    ``artifacts/recommendation-guardrails.md`` and it gets injected here so
+    future runs honor it. Returns a neutral placeholder when the artifact is
+    absent so prompts can render unconditionally.
+    """
+    content = (artifacts.get("recommendation-guardrails") or "").strip()
+    if not content:
+        return "No recommendation guardrails on file."
+    return content
 
 
 def build_artifact_bundle(

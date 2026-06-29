@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -74,14 +75,42 @@ def load_prompt(name: str, prompts_dir: Path | None = None) -> Prompt:
     return Prompt(config=config, system=system, user=user)
 
 
+def _date_context_line() -> str:
+    """A one-line current-date anchor prepended to every system prompt.
+
+    Models otherwise default to their training-era year and reference stale
+    "current" plans/prices. Stating today's date up front keeps "this year",
+    "latest", and "current" grounded in reality.
+    """
+    today = date.today()
+    return (
+        f"Current date: {today.isoformat()} (year {today.year}). "
+        "When you say 'current', 'latest', 'now', or 'this year', anchor to "
+        "this date — never to a year from your training data."
+    )
+
+
 def render_prompt(prompt: Prompt, variables: dict[str, str]) -> Prompt:
     """Render Jinja2-style {{ variable }} placeholders in the system and user strings.
 
     Returns a new Prompt with rendered content. Uses simple string replacement
     rather than a full Jinja2 engine to avoid the dependency.
+
+    Always-available variables (callers may override): ``current_date`` (ISO
+    today), ``current_year``. A current-date anchor line is also prepended to
+    the system prompt so prompts don't have to opt in.
     """
-    rendered_system = _render_template(prompt.system, variables)
-    rendered_user = _render_template(prompt.user, variables)
+    today = date.today()
+    merged: dict[str, str] = {
+        "current_date": today.isoformat(),
+        "current_year": str(today.year),
+    }
+    merged.update(variables)
+
+    rendered_system = _render_template(prompt.system, merged)
+    if rendered_system:
+        rendered_system = f"{_date_context_line()}\n\n{rendered_system}"
+    rendered_user = _render_template(prompt.user, merged)
     return Prompt(config=prompt.config, system=rendered_system, user=rendered_user)
 
 

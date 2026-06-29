@@ -1,0 +1,4 @@
+# Dev/test dependencies (not needed to run the server). Install with:
+#   pip install -r requirements-dev.txt
+# Then run the suite from the repo root with:  python -m pytest
+pytest>=8.0

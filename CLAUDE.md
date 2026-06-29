@@ -44,6 +44,8 @@ On the first run this triggers first-time setup (Python check, dependency instal
   - `skills/_shared/fetch-artifacts.md` — verify the local `artifacts/` folder before each workflow run (Drive sync disabled).
   - `skills/_shared/fetch-gsc.md` — the Google Search Console MCP fetch pattern (page metrics, top queries, trends) for workflows that benefit from real performance data.
   - `skills/_shared/call-workflow.md` — the async POST → poll pattern every workflow uses.
+  - `skills/gsc-reports/SKILL.md` — generate ranking reports and HTML dashboards directly from the GSC MCP (no Python server). Use for "where does everything rank," mobile vs. desktop, movers, opportunity finding.
+- `templates/artifacts/` — copyable templates for the optional, hand-maintained artifacts (`plans-and-pricing`, `recommendation-guardrails`). Copy into `artifacts/` and fill in.
 
 ## How to Run Workflows
 
@@ -51,7 +53,13 @@ On the first run this triggers first-time setup (Python check, dependency instal
 
 Claude should `ls artifacts/` and confirm the six expected files (`workflow-context.md`, `company-context.md`, `writing-style.md`, `audience-personas.md`, `brand-guardrails.md`, `products-and-services.md`) are present. If any are missing, tell the user — don't try to fetch from Drive. See `skills/_shared/fetch-artifacts.md` for the full procedure.
 
+Two **optional** artifacts are used automatically when present (don't block a run if absent): `plans-and-pricing.md` (current plan/price data so workflows stop citing stale plans) and `recommendation-guardrails.md` (the team's "stop telling me that" suppression list). Templates live in `templates/artifacts/`.
+
 **Do not call the Google Drive MCP.** Drive sync is disabled for Navi's workspace.
+
+### The feedback loop (improving recommendation quality over time)
+
+When a workflow keeps surfacing a kind of recommendation that isn't useful (or is a false positive), don't just ignore it run after run — record it so future runs honor it. Append a one-line rule to `artifacts/recommendation-guardrails.md` (create it from the template if needed). The page-audit and refresh workflows inject that file into their evaluation/synthesis steps and are instructed to suppress matching findings. If the user says something like "the audit keeps flagging X and it's not helpful," offer to add the guardrail for them.
 
 ### Calling a workflow
 

@@ -30,6 +30,12 @@ If GSC data is provided, it is the strongest signal about whether a refresh is a
 
 If no GSC section is included, base urgency on freshness signals and competitive gaps alone.
 
+Before including any recommendation, apply these guardrails:
+- **Drop crawl-extraction artifacts.** Markdown extraction strips the HTML head and interactive widgets. Do not recommend adding a meta description, title tag, schema, coverage map, or pricing card unless it's genuinely confirmed absent.
+- **Single-line-card vs. multi-line-in-text pricing is not a mismatch** — never flag it.
+- **Honor the recommendation guardrails** (team feedback below): suppress any finding matching a pattern marked unhelpful.
+- Judge pricing/plan accuracy against the plans-and-pricing artifact when one is provided upstream; otherwise frame pricing items as "verify against current pricing," not as confirmed errors.
+
 Return Markdown only.
 </system>
 
@@ -55,6 +61,9 @@ Operator notes: {{ notes }}
 
 ## Brand Evaluation
 {{ brandEvaluation }}
+
+## Recommendation Guardrails (team feedback — suppress these finding types)
+{{ recommendationGuardrails }}
 
 # Requirements
 

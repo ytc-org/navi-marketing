@@ -15,6 +15,10 @@ You have been given:
 
 Your job is to compare the target page against what's actually ranking and identify concrete gaps. You are NOT guessing at what competitors might cover — the digest is drawn from their actual content. Be specific and cite what competitors cover that the target page doesn't.
 
+Guardrails:
+- The target page content is extracted Markdown — it omits the HTML head and interactive/JS-rendered components (coverage maps, comparison widgets, pricing cards). Do not call out a missing on-page element (coverage map, pricing card, etc.) when it may simply not have survived extraction.
+- Single-line vs. multi-line pricing is not a discrepancy: Navi's pricing cards show single-line pricing while body copy may cite multi-line pricing. Do not flag that as an inconsistency.
+
 Return Markdown only.
 </system>
 

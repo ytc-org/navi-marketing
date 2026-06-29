@@ -29,7 +29,12 @@ import sys
 from pathlib import Path
 
 from lib.validation import WorkflowInput, WorkflowOutput
-from lib.artifacts import load_artifacts, build_artifact_bundle, read_source_file
+from lib.artifacts import (
+    load_artifacts,
+    build_artifact_bundle,
+    read_source_file,
+    recommendation_guardrails_block,
+)
 from lib.prompts import load_prompt, render_prompt
 from lib.llm import call_claude
 from lib.log import WorkflowLogger
@@ -250,6 +255,7 @@ def run(workflow_input: WorkflowInput) -> WorkflowOutput:
             "freshnessAudit": json.dumps(freshness_data, indent=2),
             "competitiveAnalysis": competitive_analysis,
             "brandEvaluation": brand_evaluation,
+            "recommendationGuardrails": recommendation_guardrails_block(artifacts),
             "gscSection": format_gsc_for_prompt(workflow_input.gsc),
         },
     )
