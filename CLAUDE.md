@@ -55,6 +55,8 @@ Claude should `ls artifacts/` and confirm the six expected files (`workflow-cont
 
 Two **optional** artifacts are used automatically when present (don't block a run if absent): `plans-and-pricing.md` (current plan/price data so workflows stop citing stale plans) and `recommendation-guardrails.md` (the team's "stop telling me that" suppression list). Templates live in `templates/artifacts/`.
 
+The **video_script** workflow additionally uses per-brand video style guides — `video-style-guide.md` (Navi) and `video-style-guide-save-on-wireless.md` — distilled from the team's produced-script corpus. They're excluded from the default artifact bundle (article workflows never see them) and injected only into the video prompts. If the requested brand's guide is missing, warn the user; the run still works but loses the brand's voice contract. Template: `templates/artifacts/video-style-guide.template.md`.
+
 **Do not call the Google Drive MCP.** Drive sync is disabled for Navi's workspace.
 
 ### The feedback loop (improving recommendation quality over time)
@@ -90,6 +92,7 @@ See `skills/_shared/call-workflow.md` for the full pattern.
 - `POST /api/metadata_suggestions` — Generate title tags, meta descriptions, and heading guidance
 - `POST /api/internal_link_recommendations` — Identify internal linking opportunities (uses sitemap.xml + OpenAI embeddings)
 - `POST /api/net_new_content_brief` — Create a content brief for a new article. Pass `write_article: true` to also draft the article.
+- `POST /api/video_script` — Generate 2–3 short-form video script variations from a source article or brief. Pass `brand: "navi"` (default) or `brand: "save-on-wireless"`; uses the brand's video style guide artifact.
 
 ### Input schema (all workflows)
 
@@ -103,7 +106,9 @@ See `skills/_shared/call-workflow.md` for the full pattern.
   "notes": "optional - extra context",
   "gsc": "optional - structured Google Search Console data (see py/lib/gsc.py)",
   "sitemap_url": "optional (internal_link_recommendations only)",
-  "write_article": "optional bool (net_new_content_brief only)"
+  "write_article": "optional bool (net_new_content_brief only)",
+  "brand": "optional (video_script only) - 'navi' (default) or 'save-on-wireless'",
+  "script_count": "optional int 2-3 (video_script only, default 3)"
 }
 ```
 

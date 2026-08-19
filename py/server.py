@@ -19,6 +19,7 @@ Endpoints:
   POST /api/metadata_suggestions
   POST /api/internal_link_recommendations
   POST /api/net_new_content_brief
+  POST /api/video_script
   GET  /api/jobs/<job_id>
   GET  /api/health
   GET  /api/workflows
@@ -180,6 +181,11 @@ WORKFLOWS: dict[str, dict] = {
     "net_new_content_brief": {
         "description": "Create a content brief for a new article or page (optionally drafts the full article when write_article=true)",
         "module": "workflows.net_new_content_brief",
+        "function": "run",
+    },
+    "video_script": {
+        "description": "Generate 2-3 short-form video script variations from a source article or brief (brand: navi or save-on-wireless)",
+        "module": "workflows.video_script",
         "function": "run",
     },
 }

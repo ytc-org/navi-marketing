@@ -20,6 +20,10 @@ KNOWN_ARTIFACTS = [
     # present they flow into the relevant prompts automatically.
     "plans-and-pricing",
     "recommendation-guardrails",
+    # Video style guides, distilled from the team's example script corpus.
+    # Injected only by the video_script workflow (never in the default bundle).
+    "video-style-guide",
+    "video-style-guide-save-on-wireless",
 ]
 
 
@@ -42,7 +46,14 @@ def load_artifacts(artifact_dir: Path | None = None) -> dict[str, str]:
 #   - workflow-context: operating instructions for the ops system itself.
 #   - recommendation-guardrails: a suppression list injected separately into
 #     evaluation/synthesis prompts (not part of the brand context bundle).
-_DEFAULT_EXCLUDED = {"workflow-context", "recommendation-guardrails"}
+#   - video-style-guide*: video-only voice guides injected separately by the
+#     video_script workflow (article workflows must not absorb video style).
+_DEFAULT_EXCLUDED = {
+    "workflow-context",
+    "recommendation-guardrails",
+    "video-style-guide",
+    "video-style-guide-save-on-wireless",
+}
 
 # Default selection: every known artifact except the excluded ones above.
 DEFAULT_ARTIFACTS = [n for n in KNOWN_ARTIFACTS if n not in _DEFAULT_EXCLUDED]
@@ -60,6 +71,47 @@ def recommendation_guardrails_block(artifacts: dict[str, str]) -> str:
     content = (artifacts.get("recommendation-guardrails") or "").strip()
     if not content:
         return "No recommendation guardrails on file."
+    return content
+
+
+# Brands the video_script workflow can target, mapped to their style guide
+# artifact. Keys are normalized brand slugs (see normalize_brand).
+VIDEO_STYLE_ARTIFACTS = {
+    "navi": "video-style-guide",
+    "save-on-wireless": "video-style-guide-save-on-wireless",
+}
+
+
+def normalize_brand(brand: str | None) -> str:
+    """Normalize a brand input to a known slug. Raises ValueError on unknown brands.
+
+    Defaults to "navi" when omitted. Accepts loose spellings like
+    "Save On Wireless" or "save_on_wireless".
+    """
+    slug = (brand or "navi").strip().lower().replace("_", "-").replace(" ", "-")
+    aliases = {"sow": "save-on-wireless", "saveonwireless": "save-on-wireless"}
+    slug = aliases.get(slug, slug)
+    if slug not in VIDEO_STYLE_ARTIFACTS:
+        known = ", ".join(sorted(VIDEO_STYLE_ARTIFACTS))
+        raise ValueError(f"Unknown brand '{brand}'. Known brands: {known}")
+    return slug
+
+
+def video_style_block(artifacts: dict[str, str], brand: str | None = None) -> str:
+    """Return the brand's video style guide as a prompt block.
+
+    Returns a neutral placeholder when the guide artifact is absent so prompts
+    can render unconditionally — but workflows should warn the user, since the
+    guide is what keeps scripts on-brand.
+    """
+    slug = VIDEO_STYLE_ARTIFACTS[normalize_brand(brand)]
+    content = (artifacts.get(slug) or "").strip()
+    if not content:
+        return (
+            "No video style guide on file for this brand. Fall back to the brand "
+            "guardrails and writing style context, keep scripts in a short-form "
+            "spoken-voiceover format, and flag the output for human style review."
+        )
     return content
 
 
