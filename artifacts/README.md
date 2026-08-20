@@ -27,3 +27,10 @@ After a fetch, you should see:
 - `products-and-services.md`
 
 If these are missing when you run a workflow, the workflow will still run but without brand context — output quality will drop. Ask Claude to fetch artifacts before trying again.
+
+## Optional files
+
+Used automatically when present; runs don't block when absent:
+
+- `plans-and-pricing.md` / `recommendation-guardrails.md` — see `templates/artifacts/`.
+- `video-style-guide.md` (Navi) and `video-style-guide-save-on-wireless.md` — per-brand voice contracts for the `video_script` workflow, distilled from the produced-script corpus. The shared source of truth lives in the Drive folder above as the Google Docs **"Video Style Guide"** and **"Video Style Guide — Save On Wireless"**; copy their content into these filenames here. Template: `templates/artifacts/video-style-guide.template.md`.

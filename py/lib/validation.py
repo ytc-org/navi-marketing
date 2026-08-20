@@ -28,6 +28,8 @@ class WorkflowInput(BaseModel):
     # Workflow-specific options
     sitemap_url: str | None = Field(None, description="Override sitemap URL for internal_link_recommendations. Defaults to {domain}/sitemap.xml")
     write_article: bool = Field(False, description="If true on net_new_content_brief, also draft the full article from the brief using Opus")
+    brand: str | None = Field(None, description="Brand for video_script: 'navi' (default) or 'save-on-wireless'. Selects the video style guide artifact and the CTA/sign-off rules.")
+    script_count: int = Field(3, ge=2, le=3, description="Number of script variations video_script generates (2 or 3)")
 
 
 class WorkflowOutput(BaseModel):
